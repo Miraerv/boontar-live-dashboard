@@ -1,6 +1,5 @@
 <script setup>
 import { ref } from 'vue'
-import { Lock } from '@lucide/vue'
 import { useDashboardAuth } from '../composables/useDashboardAuth'
 
 const emit = defineEmits(['unlocked'])
@@ -30,10 +29,14 @@ async function onSubmit() {
 <template>
   <div class="gate">
     <form class="gate__card" @submit.prevent="onSubmit">
-      <div class="gate__icon" aria-hidden="true">
-        <Lock :size="22" stroke-width="2.2" />
-      </div>
-      <h1 class="gate__title">Boontar Dashboard</h1>
+      <img
+        class="gate__logo"
+        src="/logotype-boon-dash.svg"
+        width="200"
+        height="50"
+        alt="BOON DASH"
+      />
+      <h1 class="gate__title">Доска заказов</h1>
       <p class="gate__hint">Введи пароль склада, чтобы открыть доску заказов</p>
 
       <label class="gate__field">
@@ -78,20 +81,16 @@ async function onSubmit() {
   box-shadow: var(--shadow-card);
 }
 
-.gate__icon {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 12px;
-  background: var(--blue-bg);
-  color: var(--blue);
-  margin-bottom: 14px;
+.gate__logo {
+  display: block;
+  width: 168px;
+  height: auto;
+  margin-bottom: 16px;
 }
 
 .gate__title {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--text);
