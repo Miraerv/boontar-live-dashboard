@@ -1,44 +1,178 @@
-# ./
+# boontar-live-dashboard
 
-This template should help get you started developing with Vue 3 in Vite.
+Live-доска заказов склада (Boontar Market). Одностраничное Vue 3 SPA: PIN-вход, kanban по статусам, realtime через Pusher.
 
-## Recommended IDE Setup
+```
+SPA  ──/api/*──►  Hono BFF (boontar-live-dashboard-backend :3000)
+                      │
+                      └──►  Laravel admin-products (live-dashboard API)
+SPA  ──ws──────►  Pusher  channel orders-{storeId}
+```
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+## Возможности
 
-## Recommended Browser Setup
+- Вход по PIN → Bearer-токен (сессия в `localStorage`)
+- Список складов из ответа auth, переключение склада
+- Колонки: Создан → Сборка → Упакован → Взят → Доставляется → Почти прибыл
+- Обновления по Pusher + quiet-reload при пропущенных событиях
+- Звук нового заказа (нужен клик по странице из‑за autoplay policy)
+- Только заказы «сегодня» (календарный день Якутска) — как на backend
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+## Стек
 
-## Customize configuration
+| | |
+|---|---|
+| Vue 3 + Vite | UI |
+| composables + local `ref` | state (без Pinia / vue-router) |
+| `pusher-js` | realtime |
+| `@lucide/vue` | иконки |
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+## Структура
 
-## Project Setup
+```
+src/
+  api/           # orders, pusher
+  components/    # LoginGate, OrderCard
+  composables/   # auth, sound, now
+  constants/     # склады (fallback / localStorage id)
+  utils/         # format, time, notifySound
+  styles/        # design tokens
+  App.vue        # board + оркестрация
+```
+
+## Setup
+
+Нужны **два** backend-сервиса рядом с SPA:
+
+1. Laravel `admin-products` — `php artisan serve --host=127.0.0.1 --port=8000`
+2. Hono BFF — см. `../boontar-live-dashboard-backend`
 
 ```sh
 pnpm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
 pnpm dev
 ```
 
-### Compile and Minify for Production
+Vite проксирует `/api` → `http://127.0.0.1:3000` (переопределить: `VITE_API_PROXY`).
+
+Открыть dev-сервер Vite (обычно `http://localhost:5173`).
+
+### Env (опционально)
+
+| var | default | meaning |
+|-----|---------|---------|
+| `VITE_API_PROXY` | `http://127.0.0.1:3000` | target proxy для `/api` |
+| `VITE_PUSHER_APP_KEY` | fallback в коде | public key Pusher |
+| `VITE_PUSHER_APP_CLUSTER` | `ap3` | cluster |
+
+PIN-доступы и склады настраиваются в seller: **Доступы Market Dashboard** (`/dashboard-access`).
+
+## Scripts
 
 ```sh
-pnpm build
+pnpm dev      # dev server + HMR
+pnpm build    # production bundle → dist/
+pnpm preview  # preview dist
+pnpm lint     # oxlint + eslint
+pnpm format   # prettier src/
 ```
 
-### Lint with [ESLint](https://eslint.org/)
+## Docker (prod)
+
+Отдельный compose + общая сеть `boontar-live-dashboard` с BFF-репозиторием
+[`boontar-live-dashboard-backend`](../boontar-live-dashboard-backend).
+
+```
+browser  →  SPA nginx :8080
+                /api  →  backend:3000 (Hono, shared network)
+                              →  Laravel (whitelist IP хоста Hono)
+         ──ws──►  Pusher
+```
+
+### 0. Один раз на сервере — сеть
 
 ```sh
-pnpm lint
+docker network create boontar-live-dashboard
 ```
+
+Повторный create безопасен не будет — если сеть уже есть, шаг пропускай:
+`docker network ls | grep boontar-live-dashboard`.
+
+### 1. Сначала backend (Hono)
+
+```sh
+cd /path/to/boontar-live-dashboard-backend
+cp .env.example .env
+# в .env: LARAVEL_API_URL=https://seller.example.com
+docker compose up -d --build
+curl -sS http://127.0.0.1:3000/health   # {"ok":true}
+```
+
+Подробнее — README backend. Laravel whitelist: IP **этого** сервера (Hono → Laravel).
+
+### 2. Потом SPA (этот репозиторий)
+
+```sh
+cd /path/to/boontar-live-dashboard
+cp .env.example .env
+```
+
+Пример `.env` на проде:
+
+```env
+DASHBOARD_PORT=8080
+BACKEND_HOST=backend:3000
+VITE_PUSHER_APP_KEY=your_public_key
+VITE_PUSHER_APP_CLUSTER=ap3
+```
+
+| var | default | meaning |
+|-----|---------|---------|
+| `DASHBOARD_PORT` | `8080` | порт на хосте → nginx |
+| `BACKEND_HOST` | `backend:3000` | Hono на shared network (alias) |
+| `VITE_PUSHER_APP_KEY` | — | public key Pusher (**bake at build**) |
+| `VITE_PUSHER_APP_CLUSTER` | `ap3` | cluster Pusher (**bake at build**) |
+
+`VITE_*` попадают в JS **только при сборке образа**. Сменил ключ → `docker compose up -d --build` снова.
+
+```sh
+docker compose up -d --build
+```
+
+### 3. Проверка
+
+```sh
+docker compose ps
+curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/          # 200
+curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/api/dashboard/auth/me
+# 401 без токена — значит proxy до Hono жив
+```
+
+Открыть в браузере: `http://<server>:8080` → PIN → заказы → realtime.
+
+Перед балансировщиком/TLS (Caddy, nginx, Cloudflare) можно проксировать на `127.0.0.1:8080`.
+
+### Полезные команды
+
+```sh
+docker compose logs -f --tail=100
+docker compose restart
+docker compose up -d --build    # после смены VITE_* или кода
+docker compose down             # остановить SPA (сеть boontar-live-dashboard не удалится)
+```
+
+### Замечания
+
+- Backend должен быть **уже up** на сети, иначе nginx не резолвит `backend`.
+- Браузер **не** ходит в Laravel — только nginx → Hono → Laravel.
+- Не коммить `.env` (есть в `.gitignore`).
+
+## Auth & API (через BFF)
+
+| Method | Path | |
+|--------|------|--|
+| `POST` | `/api/dashboard/auth/login` | `{ password }` → token + stores |
+| `GET`  | `/api/dashboard/auth/me` | restore session |
+| `POST` | `/api/dashboard/auth/logout` | |
+| `GET`  | `/api/dashboard/stores/:id/orders` | Bearer, активные заказы дня |
+
+Подробнее о маппинге на Laravel — в README backend.

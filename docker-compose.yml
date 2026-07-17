@@ -1,0 +1,43 @@
+# Vue SPA + nginx — proxies /api to Hono BFF (separate repo/compose)
+#
+# Shared network (create once if missing):
+#   docker network create boontar-live-dashboard
+#
+#   # 1) start backend first
+#   # 2) here:
+#   cp .env.example .env
+#   docker compose up -d --build
+#   open http://localhost:8080
+#
+# Default BACKEND_HOST=backend:3000 (alias on shared network boontar-live-dashboard).
+
+name: boontar-live-dashboard
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_PUSHER_APP_KEY: ${VITE_PUSHER_APP_KEY:-}
+        VITE_PUSHER_APP_CLUSTER: ${VITE_PUSHER_APP_CLUSTER:-ap3}
+    container_name: boontar-live-dashboard-frontend
+    ports:
+      - "${DASHBOARD_PORT:-8080}:80"
+    environment:
+      # host:port of Hono on shared network (alias from backend compose)
+      BACKEND_HOST: ${BACKEND_HOST:-backend:3000}
+    networks:
+      - dashboard
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+networks:
+  dashboard:
+    name: boontar-live-dashboard
+    external: true
