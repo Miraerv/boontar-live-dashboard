@@ -183,6 +183,8 @@ function onStoreChange(event) {
   height: 7px;
   border-radius: 50%;
   background: currentColor;
+  /* neutral fallback: currentColor mix needs color-mix (Safari 16.2+) */
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.12);
   box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 22%, transparent);
 }
 

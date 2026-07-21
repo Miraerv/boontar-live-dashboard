@@ -23,9 +23,16 @@ SPA  ──ws──────►  Pusher  channel orders-{storeId}
 | | |
 |---|---|
 | Vue 3 + Vite | UI |
+| `@vitejs/plugin-legacy` | dual modern/legacy chunks + core-js (старые телефоны) |
 | composables + local `ref` | state (без Pinia / vue-router) |
 | `pusher-js` | realtime |
 | `@lucide/vue` | иконки |
+
+### Браузеры
+
+Prod-сборка целится в `browserslist` (iOS ≥ 13, Android ≥ 8, Chrome ≥ 80, Safari ≥ 13).
+Старые движки получают SystemJS legacy-чанк и polyfills; ещё более древние WebView
+(до Vue 3 floor) по-прежнему не поддерживаются.
 
 ## Структура
 

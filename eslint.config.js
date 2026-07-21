@@ -21,6 +21,16 @@ export default defineConfig([
     },
   },
 
+  {
+    name: 'app/node-config',
+    files: ['*.config.js', 'vite.config.js', 'eslint.config.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+
   js.configs.recommended,
   ...pluginVue.configs['flat/essential'],
 

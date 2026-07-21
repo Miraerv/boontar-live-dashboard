@@ -131,7 +131,10 @@ async function onSubmit() {
 }
 
 .gate__input:focus {
+  /* solid fallbacks: color-mix unsupported on Safari < 16.2 / old Android WebView */
+  border-color: #8eb0f5;
   border-color: color-mix(in srgb, var(--blue) 55%, var(--border));
+  box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.18);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 18%, transparent);
 }
 

@@ -119,6 +119,7 @@ const priceLabel = computed(() => formatMoney(props.order.total))
 
 .card:hover {
   box-shadow: var(--shadow-card-hover);
+  border-color: #c5c8d2;
   border-color: color-mix(in srgb, var(--border) 60%, var(--text-muted));
 }
 
@@ -278,6 +279,7 @@ const priceLabel = computed(() => formatMoney(props.order.total))
 
 .address-box {
   border: 1px solid var(--border-soft);
+  background: #f4f5f8;
   background: color-mix(in srgb, var(--bg-page) 55%, #fff);
   border-radius: var(--radius-md);
   padding: 10px 12px;

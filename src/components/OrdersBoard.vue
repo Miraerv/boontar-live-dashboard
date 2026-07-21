@@ -78,6 +78,7 @@ const emit = defineEmits(['retry'])
   flex-direction: column;
   min-width: 0;
   background: var(--bg-column);
+  border: 1px solid rgba(226, 229, 236, 0.8);
   border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
   border-radius: var(--radius-lg);
   padding-bottom: 10px;
@@ -95,6 +96,8 @@ const emit = defineEmits(['retry'])
   min-height: 52px;
   padding: 0 14px;
   border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
+  /* accent is set per-column; soft white tint as fallback when color-mix missing */
+  background: #fff;
   background: color-mix(in srgb, var(--accent) 14%, #fff);
   border-bottom: 2px solid var(--accent);
 }
@@ -155,6 +158,7 @@ const emit = defineEmits(['retry'])
 
 .state--error {
   background: var(--red-bg);
+  border-color: rgba(224, 80, 60, 0.25);
   border-color: color-mix(in srgb, var(--red) 25%, transparent);
   color: #8a2a1f;
 }
