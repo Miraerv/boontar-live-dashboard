@@ -108,7 +108,11 @@ function onStoreChange(event) {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 10px 12px 0;
+  /* Bottom chrome for TV: separator above, padding against screen edge */
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-elevated);
+  box-shadow: 0 -1px 0 rgba(16, 24, 40, 0.03);
 }
 
 .toolbar__meta {

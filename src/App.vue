@@ -113,8 +113,21 @@ onMounted(async () => {
 <template>
   <div v-if="!authReady" class="state state--loading">Проверка сессии…</div>
   <LoginGate v-else-if="!unlocked" @unlocked="onUnlocked" />
+  <!--
+    TV kiosk: board first (eye-level), chrome at bottom.
+    Orders are what pickers watch; status/actions stay reachable but out of the way.
+  -->
   <div v-else class="page">
+    <OrdersBoard
+      class="page__board"
+      :orders-by-status="ordersByStatus"
+      :loading="loading"
+      :error="error"
+      @retry="loadOrders()"
+    />
+
     <DashboardToolbar
+      class="page__toolbar"
       :available-stores="availableStores"
       :store-id="storeId"
       :current-store-name="currentStoreName"
@@ -126,19 +139,25 @@ onMounted(async () => {
       @refresh="loadOrders()"
       @logout="onLogout"
     />
-
-    <OrdersBoard
-      :orders-by-status="ordersByStatus"
-      :loading="loading"
-      :error="error"
-      @retry="loadOrders()"
-    />
   </div>
 </template>
 
 <style scoped>
 .page {
   min-height: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.page__board {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.page__toolbar {
+  flex: 0 0 auto;
 }
 
 .state {

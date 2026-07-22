@@ -68,9 +68,12 @@ const emit = defineEmits(['retry'])
 .board {
   display: grid;
   gap: 10px;
-  padding: 10px 12px 12px;
+  /* Top padding only — bottom chrome owns the lower edge */
+  padding: 10px 12px 8px;
   overflow-x: auto;
   align-items: start;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .column {
