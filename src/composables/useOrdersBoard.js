@@ -1,6 +1,7 @@
 import { computed, onUnmounted, ref } from 'vue'
-import { fetchStoreOrders } from '../api/orders'
+import { fetchAllOrders, fetchStoreOrders } from '../api/orders'
 import { ACTIVE_STATUSES, STATUS_UI_MAP, subscribeStoreOrders } from '../api/pusher'
+import { ALL_STORES_ID } from '../constants/stores'
 import { STATUSES } from '../constants/statuses'
 import { isOrderFromToday } from '../utils/time'
 
@@ -8,14 +9,15 @@ import { isOrderFromToday } from '../utils/time'
 const POLL_MS = 15_000
 
 /**
- * Live orders board: HTTP load + Pusher patches for a single store.
+ * Live orders board: HTTP load + Pusher patches for a single store or all stores.
  *
  * @param {object} options
- * @param {import('vue').Ref<number>} options.storeId
+ * @param {import('vue').Ref<number>} options.storeId selected store or ALL_STORES_ID
+ * @param {import('vue').Ref<number[]>} [options.storeIds] warehouses for multi-channel subscribe
  * @param {() => void | Promise<void>} [options.onSessionDead] called on 401/403-style errors
  * @param {() => void} [options.onNewOrder] play sound / notify when a new order id appears
  */
-export function useOrdersBoard({ storeId, onSessionDead, onNewOrder }) {
+export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder }) {
   const orders = ref([])
   const loading = ref(true)
   const error = ref(null)
@@ -34,6 +36,8 @@ export function useOrdersBoard({ storeId, onSessionDead, onNewOrder }) {
   let skipNextOnlineSync = false
   /** @type {((this: Document, ev: Event) => void)|null} */
   let onVisibility = null
+
+  const isAllStores = () => storeId.value === ALL_STORES_ID
 
   const ordersByStatus = computed(() => {
     const groups = {}
@@ -130,7 +134,13 @@ export function useOrdersBoard({ storeId, onSessionDead, onNewOrder }) {
     }
 
     try {
-      const list = await fetchStoreOrders(storeId.value)
+      let list = isAllStores()
+        ? await fetchAllOrders()
+        : await fetchStoreOrders(storeId.value)
+      // Store badge only useful when many warehouses share one board
+      if (!isAllStores()) {
+        list = list.map((o) => (o.storeName ? { ...o, storeName: null } : o))
+      }
       applyOrderList(list)
       error.value = null
     } catch (e) {
@@ -190,6 +200,17 @@ export function useOrdersBoard({ storeId, onSessionDead, onNewOrder }) {
   }
 
   /**
+   * Store ids currently in scope (single or all).
+   * @returns {number[]}
+   */
+  function activeStoreIds() {
+    if (isAllStores()) {
+      return Array.isArray(storeIds?.value) ? storeIds.value : []
+    }
+    return [storeId.value]
+  }
+
+  /**
    * @param {string} eventName
    * @param {any} data
    */
@@ -200,9 +221,12 @@ export function useOrdersBoard({ storeId, onSessionDead, onNewOrder }) {
       return
     }
 
-    // Ignore events for other stores if payload carries store_id
-    if (order.store_id != null && String(order.store_id) !== String(storeId.value)) {
-      return
+    // Ignore events for stores outside current selection
+    if (order.store_id != null) {
+      const allowed = new Set(activeStoreIds().map(String))
+      if (allowed.size > 0 && !allowed.has(String(order.store_id))) {
+        return
+      }
     }
 
     // Non-customer events are noise for this board (backend list is customer-only)
@@ -260,7 +284,7 @@ export function useOrdersBoard({ storeId, onSessionDead, onNewOrder }) {
     pusherOnline.value = false
     skipNextOnlineSync = true
     pusherSub = subscribeStoreOrders({
-      storeId: storeId.value,
+      storeId: activeStoreIds(),
       onEvent: onPusherEvent,
       onConnectionChange: (online) => {
         const becameOnline = online && !wasPusherOnline

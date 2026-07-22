@@ -28,7 +28,7 @@ export const ORDER_EVENTS = [
 
 /**
  * @param {object} options
- * @param {number|string} options.storeId
+ * @param {number|string|Array<number|string>} options.storeId one store or many (master “all”)
  * @param {(event: string, data: unknown) => void} options.onEvent
  * @param {(online: boolean) => void} [options.onConnectionChange]
  * @returns {{ disconnect: () => void }}
@@ -36,6 +36,15 @@ export const ORDER_EVENTS = [
 export function subscribeStoreOrders({ storeId, onEvent, onConnectionChange }) {
   if (typeof Pusher !== 'function') {
     console.error('[pusher] Pusher constructor not found', PusherImport)
+    onConnectionChange?.(false)
+    return { disconnect: () => {} }
+  }
+
+  const storeIds = (Array.isArray(storeId) ? storeId : [storeId])
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id) && id > 0)
+
+  if (storeIds.length === 0) {
     onConnectionChange?.(false)
     return { disconnect: () => {} }
   }
@@ -54,8 +63,10 @@ export function subscribeStoreOrders({ storeId, onEvent, onConnectionChange }) {
     unavailableTimeout: 10_000,
   })
 
-  const channelName = `orders-${storeId}`
-  const channel = pusher.subscribe(channelName)
+  const channels = storeIds.map((id) => {
+    const channelName = `orders-${id}`
+    return pusher.subscribe(channelName)
+  })
 
   const setOnline = (online) => {
     onConnectionChange?.(online)
@@ -90,29 +101,34 @@ export function subscribeStoreOrders({ storeId, onEvent, onConnectionChange }) {
     setOnline(false)
   })
 
-  // Non-fatal errors must NOT flip the pill to Offline
+  // Non-fatal errors must NOT flip the pill to offline
   pusher.connection.bind('error', (err) => {
     console.error('[pusher] connection error', err)
   })
 
-  channel.bind('pusher:subscription_succeeded', () => {
-    console.info(`[pusher] subscribed to ${channelName}`)
-    setOnline(true)
-  })
+  for (const channel of channels) {
+    const channelName = channel.name
+    channel.bind('pusher:subscription_succeeded', () => {
+      console.info(`[pusher] subscribed to ${channelName}`)
+      setOnline(true)
+    })
 
-  channel.bind('pusher:subscription_error', (err) => {
-    console.error(`[pusher] subscription error on ${channelName}`, err)
-  })
+    channel.bind('pusher:subscription_error', (err) => {
+      console.error(`[pusher] subscription error on ${channelName}`, err)
+    })
 
-  for (const eventName of ORDER_EVENTS) {
-    channel.bind(eventName, (data) => onEvent(eventName, data))
+    for (const eventName of ORDER_EVENTS) {
+      channel.bind(eventName, (data) => onEvent(eventName, data))
+    }
   }
 
   return {
     disconnect() {
       try {
-        channel.unbind_all()
-        pusher.unsubscribe(channelName)
+        for (const channel of channels) {
+          channel.unbind_all()
+          pusher.unsubscribe(channel.name)
+        }
         pusher.disconnect()
       } catch (e) {
         console.warn('[pusher] disconnect error', e)

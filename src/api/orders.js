@@ -23,6 +23,8 @@ export function mapOrder(raw) {
   return {
     id: raw.order_number ?? String(raw.id),
     orderId: raw.id,
+    storeId: raw.store_id != null ? Number(raw.store_id) : null,
+    storeName: raw.store_name ? String(raw.store_name) : null,
     total: raw.total ?? 0,
     status: raw.status_ui ?? raw.status,
     // only frozen/chilled — not dominant product category
@@ -44,10 +46,10 @@ export function mapOrder(raw) {
 }
 
 /**
- * @param {number|string} storeId
+ * @param {string} path
  * @returns {Promise<ReturnType<typeof mapOrder>[]>}
  */
-export async function fetchStoreOrders(storeId) {
+async function fetchOrdersPath(path) {
   const { getToken } = useDashboardAuth()
   const token = getToken()
 
@@ -55,7 +57,7 @@ export async function fetchStoreOrders(storeId) {
   const headers = { Accept: 'application/json' }
   if (token) headers.Authorization = `Bearer ${token}`
 
-  const response = await fetch(`/api/dashboard/stores/${storeId}/orders`, { headers })
+  const response = await fetch(path, { headers })
 
   if (response.status === 401 || response.status === 403) {
     throw new Error('Сессия истекла или нет доступа. Войди заново.')
@@ -70,4 +72,20 @@ export async function fetchStoreOrders(storeId) {
   const list = json?.data?.orders ?? []
 
   return list.map(mapOrder)
+}
+
+/**
+ * @param {number|string} storeId
+ * @returns {Promise<ReturnType<typeof mapOrder>[]>}
+ */
+export async function fetchStoreOrders(storeId) {
+  return fetchOrdersPath(`/api/dashboard/stores/${storeId}/orders`)
+}
+
+/**
+ * All accessible stores (master → every warehouse).
+ * @returns {Promise<ReturnType<typeof mapOrder>[]>}
+ */
+export async function fetchAllOrders() {
+  return fetchOrdersPath('/api/dashboard/orders')
 }

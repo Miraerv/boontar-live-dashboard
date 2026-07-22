@@ -4,7 +4,7 @@ import LoginGate from './components/LoginGate.vue'
 import DashboardToolbar from './components/DashboardToolbar.vue'
 import OrdersBoard from './components/OrdersBoard.vue'
 import ViewportDebug from './components/ViewportDebug.vue'
-import { loadStoredStoreId, saveStoredStoreId } from './constants/stores'
+import { ALL_STORES_ID, loadStoredStoreId, saveStoredStoreId } from './constants/stores'
 import { useDashboardAuth } from './composables/useDashboardAuth'
 import { useNotifySound } from './composables/useNotifySound'
 import { useOrdersBoard } from './composables/useOrdersBoard'
@@ -13,11 +13,14 @@ import { useTvScale } from './composables/useTvScale'
 const auth = useDashboardAuth()
 /** @type {import('vue').Ref<{ id: number, name: string }[]>} */
 const availableStores = ref(auth.getStores())
+const isMaster = ref(auth.getIsMaster())
 const unlocked = ref(auth.isUnlocked())
 const authReady = ref(false)
 
 const unlockedStoreIds = computed(() => availableStores.value.map((s) => s.id))
-const storeId = ref(loadStoredStoreId(unlockedStoreIds.value))
+const storeId = ref(
+  loadStoredStoreId(unlockedStoreIds.value, { allowAll: isMaster.value }),
+)
 
 const { enabled: soundEnabled, playNewOrderSound } = useNotifySound()
 const { debugEnabled, metrics: viewportMetrics } = useTvScale()
@@ -36,18 +39,25 @@ const {
   clearOrders,
 } = useOrdersBoard({
   storeId,
+  storeIds: unlockedStoreIds,
   onSessionDead: onLogout,
   onNewOrder: playNewOrderSound,
 })
 
-const currentStoreName = computed(
-  () => availableStores.value.find((s) => s.id === storeId.value)?.name ?? 'Склад',
-)
+const currentStoreName = computed(() => {
+  if (storeId.value === ALL_STORES_ID) return 'Все склады'
+  return availableStores.value.find((s) => s.id === storeId.value)?.name ?? 'Склад'
+})
+
+function isValidSelection(id) {
+  if (id === ALL_STORES_ID) return isMaster.value
+  return unlockedStoreIds.value.includes(id)
+}
 
 function onStoreChange(event) {
   const nextId = Number(event.target.value)
   if (!Number.isFinite(nextId) || nextId === storeId.value) return
-  if (!unlockedStoreIds.value.includes(nextId)) return
+  if (!isValidSelection(nextId)) return
 
   storeId.value = nextId
   saveStoredStoreId(nextId)
@@ -56,11 +66,13 @@ function onStoreChange(event) {
 
 /**
  * @param {{ id: number, name: string }[]} stores
+ * @param {boolean} [master]
  */
-function applyUnlockedStores(stores) {
+function applyUnlockedStores(stores, master = false) {
   availableStores.value = stores
+  isMaster.value = Boolean(master)
   const ids = stores.map((s) => s.id)
-  storeId.value = loadStoredStoreId(ids)
+  storeId.value = loadStoredStoreId(ids, { allowAll: isMaster.value })
   saveStoredStoreId(storeId.value)
 }
 
@@ -68,17 +80,17 @@ function startBoard() {
   if (started.value) return
   if (!unlocked.value || unlockedStoreIds.value.length === 0) return
   // Ensure selected store is still allowed after re-login
-  if (!unlockedStoreIds.value.includes(storeId.value)) {
-    storeId.value = loadStoredStoreId(unlockedStoreIds.value)
+  if (!isValidSelection(storeId.value)) {
+    storeId.value = loadStoredStoreId(unlockedStoreIds.value, { allowAll: isMaster.value })
   }
   startOrdersBoard()
 }
 
 /**
- * @param {{ id: number, name: string }[]} stores
+ * @param {{ stores: { id: number, name: string }[], isMaster: boolean }} payload
  */
-function onUnlocked(stores) {
-  applyUnlockedStores(stores)
+function onUnlocked({ stores, isMaster: master }) {
+  applyUnlockedStores(stores, master)
   unlocked.value = true
   stopOrdersBoard()
   startBoard()
@@ -89,6 +101,7 @@ async function onLogout() {
   clearOrders()
   await auth.lock()
   availableStores.value = []
+  isMaster.value = false
   unlocked.value = false
 }
 
@@ -103,10 +116,11 @@ watch(
 onMounted(async () => {
   const result = await auth.restore()
   if (result.ok) {
-    applyUnlockedStores(result.stores)
+    applyUnlockedStores(result.stores, result.isMaster)
     unlocked.value = true
   } else {
     availableStores.value = []
+    isMaster.value = false
     unlocked.value = false
   }
   authReady.value = true
@@ -134,6 +148,7 @@ onMounted(async () => {
       :available-stores="availableStores"
       :store-id="storeId"
       :current-store-name="currentStoreName"
+      :is-master="isMaster"
       :loading="loading"
       :syncing="syncing"
       :sound-enabled="soundEnabled"

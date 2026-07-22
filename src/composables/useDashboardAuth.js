@@ -1,5 +1,6 @@
 const TOKEN_KEY = 'boontar.dashboard.token'
 const STORES_KEY = 'boontar.dashboard.stores'
+const MASTER_KEY = 'boontar.dashboard.is_master'
 
 /**
  * @typedef {{ id: number, name: string }} DashboardStore
@@ -59,8 +60,32 @@ function saveStores(stores) {
   }
 }
 
+/**
+ * @returns {boolean}
+ */
+function loadIsMaster() {
+  try {
+    return localStorage.getItem(MASTER_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * @param {boolean} isMaster
+ */
+function saveIsMaster(isMaster) {
+  try {
+    if (isMaster) localStorage.setItem(MASTER_KEY, '1')
+    else localStorage.removeItem(MASTER_KEY)
+  } catch {
+    // ignore
+  }
+}
+
 function clearSession() {
   saveToken(null)
+  saveIsMaster(false)
   try {
     localStorage.removeItem(STORES_KEY)
   } catch {
@@ -88,6 +113,13 @@ export function useDashboardAuth() {
   }
 
   /**
+   * @returns {boolean}
+   */
+  function getIsMaster() {
+    return loadIsMaster()
+  }
+
+  /**
    * @returns {number[]}
    */
   function getUnlockedStoreIds() {
@@ -102,8 +134,22 @@ export function useDashboardAuth() {
   }
 
   /**
+   * @param {unknown} storesRaw
+   * @returns {DashboardStore[]}
+   */
+  function normalizeStores(storesRaw) {
+    if (!Array.isArray(storesRaw)) return []
+    return storesRaw
+      .map((s) => ({
+        id: Number(s.id),
+        name: String(s.name ?? `Склад #${s.id}`),
+      }))
+      .filter((s) => Number.isFinite(s.id) && s.id > 0)
+  }
+
+  /**
    * Restore session from token (call on app boot).
-   * @returns {Promise<{ ok: true, stores: DashboardStore[] } | { ok: false }>}
+   * @returns {Promise<{ ok: true, stores: DashboardStore[], isMaster: boolean } | { ok: false }>}
    */
   async function restore() {
     const token = loadToken()
@@ -126,13 +172,8 @@ export function useDashboardAuth() {
       }
 
       const json = await response.json()
-      const stores = Array.isArray(json?.data?.stores) ? json.data.stores : []
-      const normalized = stores
-        .map((s) => ({
-          id: Number(s.id),
-          name: String(s.name ?? `Склад #${s.id}`),
-        }))
-        .filter((s) => Number.isFinite(s.id) && s.id > 0)
+      const normalized = normalizeStores(json?.data?.stores)
+      const isMaster = Boolean(json?.data?.is_master)
 
       if (normalized.length === 0) {
         clearSession()
@@ -140,18 +181,21 @@ export function useDashboardAuth() {
       }
 
       saveStores(normalized)
-      return { ok: true, stores: normalized }
+      saveIsMaster(isMaster)
+      return { ok: true, stores: normalized, isMaster }
     } catch {
       // Network blip — keep local session, board can retry API calls.
       const cached = loadStores()
-      if (cached.length > 0) return { ok: true, stores: cached }
+      if (cached.length > 0) {
+        return { ok: true, stores: cached, isMaster: loadIsMaster() }
+      }
       return { ok: false }
     }
   }
 
   /**
    * @param {string} password
-   * @returns {Promise<{ ok: true, stores: DashboardStore[] } | { ok: false, error: string }>}
+   * @returns {Promise<{ ok: true, stores: DashboardStore[], isMaster: boolean } | { ok: false, error: string }>}
    */
   async function unlock(password) {
     const input = String(password ?? '').trim()
@@ -177,25 +221,16 @@ export function useDashboardAuth() {
       }
 
       const token = json?.data?.access_token
-      const storesRaw = json?.data?.stores
-      if (!token || !Array.isArray(storesRaw) || storesRaw.length === 0) {
+      const stores = normalizeStores(json?.data?.stores)
+      const isMaster = Boolean(json?.data?.is_master)
+      if (!token || stores.length === 0) {
         return { ok: false, error: 'Сервер вернул пустой ответ' }
-      }
-
-      const stores = storesRaw
-        .map((s) => ({
-          id: Number(s.id),
-          name: String(s.name ?? `Склад #${s.id}`),
-        }))
-        .filter((s) => Number.isFinite(s.id) && s.id > 0)
-
-      if (stores.length === 0) {
-        return { ok: false, error: 'Нет доступных складов' }
       }
 
       saveToken(token)
       saveStores(stores)
-      return { ok: true, stores }
+      saveIsMaster(isMaster)
+      return { ok: true, stores, isMaster }
     } catch (e) {
       return {
         ok: false,
@@ -225,6 +260,7 @@ export function useDashboardAuth() {
   return {
     getToken,
     getStores,
+    getIsMaster,
     getUnlockedStoreIds,
     isUnlocked,
     restore,

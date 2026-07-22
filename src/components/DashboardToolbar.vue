@@ -1,6 +1,8 @@
 <script setup>
 import { LogOut, RefreshCw } from '@lucide/vue'
 
+import { ALL_STORES_ID } from '../constants/stores'
+
 defineProps({
   availableStores: {
     type: Array,
@@ -13,6 +15,10 @@ defineProps({
   currentStoreName: {
     type: String,
     required: true,
+  },
+  isMaster: {
+    type: Boolean,
+    default: false,
   },
   loading: {
     type: Boolean,
@@ -45,7 +51,7 @@ function onStoreChange(event) {
 <template>
   <header class="toolbar">
     <div class="toolbar__meta">
-      <label v-if="availableStores.length > 1" class="store-select">
+      <label v-if="isMaster || availableStores.length > 1" class="store-select">
         <span class="store-select__label">Склад</span>
         <select
           class="store-select__control"
@@ -53,6 +59,7 @@ function onStoreChange(event) {
           :disabled="loading"
           @change="onStoreChange"
         >
+          <option v-if="isMaster" :value="ALL_STORES_ID">Все склады</option>
           <option v-for="s in availableStores" :key="s.id" :value="s.id">
             {{ s.name }}
           </option>

@@ -44,6 +44,7 @@ const priceLabel = computed(() => formatMoney(props.order.total))
     <header class="card__header">
       <div class="card__identity">
         <span class="card__id">{{ order.id }}</span>
+        <span v-if="order.storeName" class="card__store">{{ order.storeName }}</span>
         <span
           v-if="ageLabel"
           class="card__age"
@@ -144,6 +145,22 @@ const priceLabel = computed(() => formatMoney(props.order.total))
   letter-spacing: -0.02em;
   color: var(--text);
   line-height: 1.15;
+}
+
+.card__store {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--blue);
+  background: var(--blue-bg);
+  padding: 0.12rem 0.45rem;
+  border-radius: var(--radius-sm);
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card__price {

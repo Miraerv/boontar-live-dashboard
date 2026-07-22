@@ -13,6 +13,7 @@ SPA  ──ws──────►  Pusher  channel orders-{storeId}
 
 - Вход по PIN → Bearer-токен (сессия в `localStorage`)
 - Список складов из ответа auth, переключение склада
+- Master (`is_master`): режим **Все склады** — заказы по всем складам + имя склада на карточке
 - Колонки: Создан → Сборка → Упакован → Взят → Доставляется → Почти прибыл
 - Обновления по Pusher + quiet-reload при пропущенных событиях
 - HTTP-poll каждые 15с + reload при visibility/reconnect (для TV/kiosk, если Pusher молчит)
@@ -194,6 +195,7 @@ docker compose down             # остановить SPA (сеть boontar-liv
 | `POST` | `/api/dashboard/auth/login` | `{ password }` → token + stores |
 | `GET`  | `/api/dashboard/auth/me` | restore session |
 | `POST` | `/api/dashboard/auth/logout` | |
+| `GET`  | `/api/dashboard/orders` | Bearer, активные заказы дня по всем доступным складам |
 | `GET`  | `/api/dashboard/stores/:id/orders` | Bearer, активные заказы дня |
 
 Подробнее о маппинге на Laravel — в README backend.

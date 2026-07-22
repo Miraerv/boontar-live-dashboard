@@ -18,7 +18,7 @@ async function onSubmit() {
   try {
     const result = await unlock(password.value)
     if (result.ok) {
-      emit('unlocked', result.stores)
+      emit('unlocked', { stores: result.stores, isMaster: result.isMaster })
       return
     }
     error.value = result.error || 'Неверный пароль'
