@@ -71,13 +71,13 @@ async function onSubmit() {
   min-height: 100%;
   display: grid;
   place-items: center;
-  padding: 24px 16px;
+  padding: 1.75rem 1.2rem;
 }
 
 .gate__card {
   width: 100%;
-  max-width: 380px;
-  padding: 28px 24px 24px;
+  max-width: 29rem;
+  padding: 2rem 1.75rem 1.75rem;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -86,33 +86,33 @@ async function onSubmit() {
 
 .gate__logo {
   display: block;
-  width: 168px;
+  width: 12.9rem;
   height: auto;
-  margin-bottom: 16px;
+  margin-bottom: 1.2rem;
 }
 
 .gate__title {
   margin: 0;
-  font-size: 18px;
+  font-size: 1.4rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--text);
 }
 
 .gate__hint {
-  margin: 6px 0 18px;
-  font-size: 13px;
+  margin: 0.45rem 0 1.35rem;
+  font-size: var(--text-base);
   color: var(--text-secondary);
 }
 
 .gate__field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .gate__label {
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -122,7 +122,7 @@ async function onSubmit() {
 .gate__input {
   width: 100%;
   box-sizing: border-box;
-  padding: 11px 12px;
+  padding: 0.85rem 0.9rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: #fff;
@@ -146,22 +146,22 @@ async function onSubmit() {
 }
 
 .gate__error {
-  margin: 10px 0 0;
-  font-size: 13px;
+  margin: 0.75rem 0 0;
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--red);
 }
 
 .gate__submit {
-  margin-top: 16px;
+  margin-top: 1.2rem;
   width: 100%;
-  padding: 11px 14px;
+  padding: 0.85rem 1.05rem;
   border: none;
   border-radius: var(--radius-md);
   background: var(--blue);
   color: #fff;
   font-weight: 700;
-  font-size: 14px;
+  font-size: var(--text-lg);
   cursor: pointer;
   box-shadow: var(--shadow-sm);
   transition: background 0.15s ease;

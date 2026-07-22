@@ -110,7 +110,7 @@ const priceLabel = computed(() => formatMoney(props.order.total))
   border: 1px solid var(--border);
   border-top: 3px solid #ccc;
   border-radius: var(--radius-md);
-  padding: 10px 11px 9px;
+  padding: 0.75rem 0.85rem 0.7rem;
   box-shadow: var(--shadow-card);
   transition:
     box-shadow 0.15s ease,
@@ -127,19 +127,19 @@ const priceLabel = computed(() => formatMoney(props.order.total))
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 
 .card__identity {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 0.2rem;
   min-width: 0;
 }
 
 .card__id {
-  font-size: 14px;
+  font-size: var(--text-lg);
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--text);
@@ -148,7 +148,7 @@ const priceLabel = computed(() => formatMoney(props.order.total))
 
 .card__price {
   flex-shrink: 0;
-  font-size: 13px;
+  font-size: var(--text-base);
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text);
@@ -159,8 +159,8 @@ const priceLabel = computed(() => formatMoney(props.order.total))
 .card__age {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  font-size: 11px;
+  gap: 0.2rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -192,18 +192,18 @@ const priceLabel = computed(() => formatMoney(props.order.total))
 
 .card__badges {
   display: flex;
-  gap: 5px;
-  margin-bottom: 8px;
+  gap: 0.35rem;
+  margin-bottom: var(--space-2);
   flex-wrap: wrap;
 }
 
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  font-size: 11px;
+  gap: 0.2rem;
+  font-size: var(--text-sm);
   font-weight: 600;
-  padding: 3px 7px;
+  padding: 0.2rem 0.55rem;
   border-radius: var(--radius-sm);
   white-space: nowrap;
   line-height: 1.25;
@@ -214,8 +214,8 @@ const priceLabel = computed(() => formatMoney(props.order.total))
   font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  font-size: 10px;
-  padding: 4px 7px;
+  font-size: var(--text-xs);
+  padding: 0.3rem 0.55rem;
 }
 
 .badge--paid {
@@ -231,7 +231,7 @@ const priceLabel = computed(() => formatMoney(props.order.total))
 /* Alerts */
 .badge--alert {
   font-weight: 700;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
   width: fit-content;
 }
 
@@ -282,15 +282,15 @@ const priceLabel = computed(() => formatMoney(props.order.total))
   background: #f4f5f8;
   background: color-mix(in srgb, var(--bg-page) 55%, #fff);
   border-radius: var(--radius-sm);
-  padding: 7px 9px;
-  margin-bottom: 8px;
+  padding: 0.55rem 0.7rem;
+  margin-bottom: var(--space-2);
 }
 
 .address-box__label {
   display: flex;
   align-items: center;
-  gap: 3px;
-  font-size: 10px;
+  gap: 0.2rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -299,7 +299,7 @@ const priceLabel = computed(() => formatMoney(props.order.total))
 }
 
 .address-box__value {
-  font-size: 12px;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--text);
   line-height: 1.3;
@@ -314,6 +314,6 @@ const priceLabel = computed(() => formatMoney(props.order.total))
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-2);
 }
 </style>

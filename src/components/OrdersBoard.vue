@@ -32,7 +32,7 @@ const emit = defineEmits(['retry'])
   <div
     v-else
     class="board"
-    :style="{ gridTemplateColumns: `repeat(${STATUSES.length}, minmax(190px, 1fr))` }"
+    :style="{ gridTemplateColumns: `repeat(${STATUSES.length}, minmax(14.5rem, 1fr))` }"
   >
     <div v-for="column in STATUSES" :key="column.key" class="column">
       <div class="column__header" :style="{ '--accent': column.color }">
@@ -67,9 +67,9 @@ const emit = defineEmits(['retry'])
 <style scoped>
 .board {
   display: grid;
-  gap: 10px;
+  gap: var(--space-3);
   /* Top padding only — bottom chrome owns the lower edge */
-  padding: 10px 12px 8px;
+  padding: var(--space-3) var(--space-4) var(--space-2);
   overflow-x: auto;
   align-items: start;
   height: 100%;
@@ -84,7 +84,7 @@ const emit = defineEmits(['retry'])
   border: 1px solid rgba(226, 229, 236, 0.8);
   border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
   border-radius: var(--radius-md);
-  padding-bottom: 8px;
+  padding-bottom: var(--space-2);
   box-shadow: var(--shadow-sm);
 }
 
@@ -95,9 +95,9 @@ const emit = defineEmits(['retry'])
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
-  min-height: 42px;
-  padding: 0 10px;
+  gap: var(--space-2);
+  min-height: 3.2rem;
+  padding: 0 var(--space-3);
   border-radius: calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0 0;
   /* accent is set per-column; soft white tint as fallback when color-mix missing */
   background: #fff;
@@ -108,9 +108,9 @@ const emit = defineEmits(['retry'])
 .column__title {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   font-weight: 700;
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--text);
   white-space: nowrap;
 }
@@ -118,10 +118,10 @@ const emit = defineEmits(['retry'])
 .column__count {
   color: #fff;
   font-weight: 800;
-  font-size: 11px;
-  padding: 2px 8px;
+  font-size: var(--text-sm);
+  padding: 0.15rem 0.6rem;
   border-radius: var(--radius-pill);
-  min-width: 22px;
+  min-width: 1.7rem;
   text-align: center;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
   font-variant-numeric: tabular-nums;
@@ -135,22 +135,22 @@ const emit = defineEmits(['retry'])
 .column__body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 6px 0;
+  gap: var(--space-2);
+  padding: var(--space-2) 0.45rem 0;
 }
 
 .column__empty {
-  padding: 16px 6px;
+  padding: 1.2rem 0.45rem;
   text-align: center;
-  font-size: 12px;
+  font-size: var(--text-md);
   font-weight: 500;
   color: var(--text-muted);
 }
 
 .state {
-  margin: 48px auto;
-  max-width: 480px;
-  padding: 28px 24px;
+  margin: 3.5rem auto;
+  max-width: 36rem;
+  padding: 2rem 1.75rem;
   text-align: center;
   border-radius: var(--radius-lg);
   background: var(--bg-elevated);
@@ -167,14 +167,14 @@ const emit = defineEmits(['retry'])
 }
 
 .state__hint {
-  margin-top: 8px;
-  font-size: 13px;
+  margin-top: var(--space-2);
+  font-size: var(--text-base);
   color: var(--text-secondary);
 }
 
 .state__retry {
-  margin-top: 14px;
-  padding: 9px 16px;
+  margin-top: 1.05rem;
+  padding: 0.7rem 1.2rem;
   border: none;
   border-radius: var(--radius-md);
   background: var(--blue);

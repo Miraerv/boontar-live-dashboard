@@ -3,10 +3,12 @@ import { computed, onMounted, ref, watch } from 'vue'
 import LoginGate from './components/LoginGate.vue'
 import DashboardToolbar from './components/DashboardToolbar.vue'
 import OrdersBoard from './components/OrdersBoard.vue'
+import ViewportDebug from './components/ViewportDebug.vue'
 import { loadStoredStoreId, saveStoredStoreId } from './constants/stores'
 import { useDashboardAuth } from './composables/useDashboardAuth'
 import { useNotifySound } from './composables/useNotifySound'
 import { useOrdersBoard } from './composables/useOrdersBoard'
+import { useTvScale } from './composables/useTvScale'
 
 const auth = useDashboardAuth()
 /** @type {import('vue').Ref<{ id: number, name: string }[]>} */
@@ -18,6 +20,7 @@ const unlockedStoreIds = computed(() => availableStores.value.map((s) => s.id))
 const storeId = ref(loadStoredStoreId(unlockedStoreIds.value))
 
 const { enabled: soundEnabled, playNewOrderSound } = useNotifySound()
+const { debugEnabled, metrics: viewportMetrics } = useTvScale()
 
 const {
   loading,
@@ -140,6 +143,8 @@ onMounted(async () => {
       @logout="onLogout"
     />
   </div>
+
+  <ViewportDebug v-if="debugEnabled" :metrics="viewportMetrics" />
 </template>
 
 <style scoped>
@@ -161,9 +166,9 @@ onMounted(async () => {
 }
 
 .state {
-  margin: 48px auto;
-  max-width: 480px;
-  padding: 28px 24px;
+  margin: 3.5rem auto;
+  max-width: 36rem;
+  padding: 2rem 1.75rem;
   text-align: center;
   border-radius: var(--radius-lg);
   background: var(--bg-elevated);

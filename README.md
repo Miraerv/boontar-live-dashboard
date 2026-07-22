@@ -18,7 +18,8 @@ SPA  ──ws──────►  Pusher  channel orders-{storeId}
 - HTTP-poll каждые 15с + reload при visibility/reconnect (для TV/kiosk, если Pusher молчит)
 - Звук нового заказа: по `order-created` и когда poll/reload видит новый id (нужен жест: PIN/клик — autoplay policy)
 - Только заказы «сегодня» (календарный день Якутска) — как на backend
-- Более плотная типографика карточек (TV-экран склада)
+- TV scale: `html` root font-size от ширины CSS viewport (design 1920 → 13px, clamp 11–15); UI в `rem`
+- Chrome (toolbar) снизу; debug HUD: `?debug=1` или `localStorage.dashDebug=1`
 
 ## Стек
 
@@ -44,10 +45,21 @@ src/
   components/    # LoginGate, OrderCard
   composables/   # auth, sound, now
   constants/     # склады (fallback / localStorage id)
-  utils/         # format, time, notifySound
-  styles/        # design tokens
+  utils/         # format, time, notifySound, tvScale
+  styles/        # design tokens + rem scale
   App.vue        # board + оркестрация
 ```
+
+### TV / large screens
+
+Вёрстка **не** читает PPI панели. Браузер работает в CSS-px; `devicePixelRatio` только
+связывает CSS-px с физическими пикселями. Плотность UI задаётся:
+
+1. CSS fallback: `html { font-size: clamp(11px, 100vw/1920*13px, 15px) }`
+2. JS `applyTvScale()` / `initTvScale()` на resize — то же правило
+3. Компоненты в `rem` / CSS-переменных `--text-*`, `--space-*`
+
+На складе: открыть `https://dash…/?debug=1` → плашка `inner / screen / dpr / root`.
 
 ## Setup
 

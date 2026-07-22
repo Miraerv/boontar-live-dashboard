@@ -14,6 +14,8 @@ const sound = read('src/utils/notifySound.js')
 const card = read('src/components/OrderCard.vue')
 const app = read('src/App.vue')
 const tokens = read('src/styles/tokens.css')
+const tvScale = read('src/utils/tvScale.js')
+const main = read('src/main.js')
 
 /** @type {{ id: string, ok: boolean, detail: string }[]} */
 const checks = []
@@ -28,7 +30,9 @@ const hasPoll =
 const hasVisibility =
   /visibilitychange/.test(board) || /document\.visibilityState/.test(board)
 const hasReconnectReload =
-  /onConnectionChange[\s\S]{0,400}loadOrders|wasOffline|prevOnline|reconnected/.test(board)
+  /onConnectionChange[\s\S]{0,400}loadOrders|wasOffline|prevOnline|reconnected|skipNextOnlineSync/.test(
+    board,
+  )
 
 check('auto-refresh-poll', hasPoll, hasPoll ? 'periodic poll present' : 'missing periodic quiet poll')
 check(
@@ -42,31 +46,32 @@ check(
   hasReconnectReload ? 'reload on pusher reconnect' : 'missing reload when realtime comes back',
 )
 
-// --- Bug 2: fonts ---
-const idSize = Number((card.match(/\.card__id\s*\{[^}]*font-size:\s*([\d.]+)px/) || [])[1] || 0)
-const priceSize = Number((card.match(/\.card__price\s*\{[^}]*font-size:\s*([\d.]+)px/) || [])[1] || 0)
-const addrSize = Number(
-  (card.match(/\.address-box__value\s*\{[^}]*font-size:\s*([\d.]+)px/) || [])[1] || 0,
-)
-const bodySize = Number((tokens.match(/body\s*\{[^}]*font-size:\s*([\d.]+)px/) || [])[1] || 0)
-const fontsOk = idSize > 0 && idSize <= 15 && priceSize > 0 && priceSize <= 14 && addrSize > 0 && addrSize <= 12
+// --- Bug 2: rem + root scale (not raw large px) ---
+const idRem = /font-size:\s*var\(--text-lg\)/.test(card) || /\.card__id[\s\S]*?font-size:\s*[\d.]+rem/.test(card)
+const priceRem =
+  /font-size:\s*var\(--text-base\)/.test(card) || /\.card__price[\s\S]*?font-size:\s*[\d.]+rem/.test(card)
+const addrRem =
+  /font-size:\s*var\(--text-md\)/.test(card) ||
+  /\.address-box__value[\s\S]*?font-size:\s*(var\(--text-md\)|[\d.]+rem)/.test(card)
+const bodyRem = /font-size:\s*var\(--text-base\)/.test(tokens)
+const hasClampRoot = /clamp\(\s*11px[\s\S]*1920[\s\S]*15px\s*\)/.test(tokens)
+const hasTvScaleUtil = /computeRootFontPx/.test(tvScale) && /applyTvScale/.test(main)
+const fontsOk = idRem && priceRem && addrRem && bodyRem && hasClampRoot && hasTvScaleUtil
 check(
-  'font-density',
+  'font-density-rem-scale',
   fontsOk,
-  `id=${idSize} price=${priceSize} address=${addrSize} body=${bodySize} (need id≤15 price≤14 address≤12)`,
+  fontsOk
+    ? 'rem type scale + html root clamp + tvScale apply'
+    : `idRem=${idRem} priceRem=${priceRem} addrRem=${addrRem} bodyRem=${bodyRem} clamp=${hasClampRoot} tvScale=${hasTvScaleUtil}`,
 )
 
-// --- Bug 3: sound on newly appeared orders (poll/diff), not only Pusher ---
-// Require an explicit previous-id Set/Map used to detect additions after loadOrders
+// --- Bug 3: sound on newly appeared orders ---
 const hasPrevOrderIds =
   /(?:prevOrderIds|knownOrderIds|seenOrderIds|lastOrderIds)\b/.test(board) ||
   /new Set\([\s\S]{0,80}orderId/.test(board)
 const playsOnDiff =
-  hasPrevOrderIds &&
-  /onNewOrder\??\.\(\)/.test(board) &&
-  /loadOrders/.test(board)
+  hasPrevOrderIds && /onNewOrder\??\.\(\)/.test(board) && /loadOrders/.test(board)
 
-// order-created alone is not enough for TV when events drop
 const onlyCreatedSound =
   (board.match(/onNewOrder\??\.\(\)/g) || []).length === 1 &&
   /case 'order-created'[\s\S]{0,120}onNewOrder/.test(board)
@@ -81,8 +86,6 @@ check(
       : 'no reliable new-order sound path',
 )
 
-// Explicit TV unlock: login / toolbar click should be enough (pointerdown covers it),
-// but play() after long idle often fails — need retry/re-unlock on failure (already partial)
 const hasPlayRetry = /catch[\s\S]{0,200}bindGesture|enabled\s*=\s*false/.test(sound)
 check(
   'sound-play-retry',
@@ -92,6 +95,16 @@ check(
 
 const appWiresSound = /onNewOrder:\s*playNewOrderSound/.test(app)
 check('sound-wired', appWiresSound, appWiresSound ? 'wired' : 'not wired')
+
+// Toolbar bottom for TV
+const bare = app.replace(/<!--[\s\S]*?-->/g, '')
+const toolbarAfterBoard =
+  bare.indexOf('<DashboardToolbar') > bare.indexOf('<OrdersBoard') && bare.includes('<OrdersBoard')
+check(
+  'toolbar-bottom',
+  toolbarAfterBoard,
+  toolbarAfterBoard ? 'toolbar after board' : 'toolbar still above board',
+)
 
 let failed = 0
 for (const c of checks) {

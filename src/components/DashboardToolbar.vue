@@ -107,9 +107,9 @@ function onStoreChange(event) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-3);
   /* Bottom chrome for TV: separator above, padding against screen edge */
-  padding: 8px 12px 10px;
+  padding: var(--space-2) var(--space-4) 0.75rem;
   border-top: 1px solid var(--border);
   background: var(--bg-elevated);
   box-shadow: 0 -1px 0 rgba(16, 24, 40, 0.03);
@@ -118,23 +118,23 @@ function onStoreChange(event) {
 .toolbar__meta {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
 .store-select {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 6px 4px 12px;
+  gap: var(--space-2);
+  padding: 0.3rem 0.45rem 0.3rem 0.9rem;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 0.9rem;
   box-shadow: var(--shadow-sm);
 }
 
 .store-select__label {
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -146,12 +146,12 @@ function onStoreChange(event) {
   border: none;
   background: transparent
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235b5f6d' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")
-    no-repeat right 8px center;
-  padding: 8px 28px 8px 4px;
-  font-size: 14px;
+    no-repeat right 0.6rem center;
+  padding: 0.6rem 2.1rem 0.6rem 0.3rem;
+  font-size: var(--text-lg);
   font-weight: 700;
   color: var(--text);
-  min-width: 200px;
+  min-width: 15rem;
   cursor: pointer;
   outline: none;
 }
@@ -162,29 +162,29 @@ function onStoreChange(event) {
 }
 
 .store-select--static {
-  padding-right: 12px;
+  padding-right: 0.9rem;
 }
 
 .store-select__name {
-  font-size: 14px;
+  font-size: var(--text-lg);
   font-weight: 700;
   color: var(--text);
-  padding: 8px 4px;
+  padding: 0.6rem 0.3rem;
 }
 
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 11px;
+  gap: var(--space-2);
+  padding: 0.35rem 0.85rem;
   border-radius: var(--radius-pill);
-  font-size: 12px;
+  font-size: var(--text-md);
   font-weight: 700;
 }
 
 .pill__dot {
-  width: 7px;
-  height: 7px;
+  width: 0.55rem;
+  height: 0.55rem;
   border-radius: 50%;
   background: currentColor;
   /* neutral fallback: currentColor mix needs color-mix (Safari 16.2+) */
@@ -210,21 +210,21 @@ function onStoreChange(event) {
 .toolbar__actions {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
 .toolbar__refresh {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 9px 14px;
+  gap: 0.5rem;
+  padding: 0.7rem 1.05rem;
   border: none;
   border-radius: var(--radius-md);
   background: var(--blue);
   color: #fff;
   font-weight: 700;
-  font-size: 13px;
+  font-size: var(--text-base);
   cursor: pointer;
   box-shadow: var(--shadow-sm);
   transition: background 0.15s ease;
@@ -247,14 +247,14 @@ function onStoreChange(event) {
 .toolbar__logout {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 9px 14px;
+  gap: 0.5rem;
+  padding: 0.7rem 1.05rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg-elevated);
   color: var(--text-secondary);
   font-weight: 700;
-  font-size: 13px;
+  font-size: var(--text-base);
   cursor: pointer;
   box-shadow: var(--shadow-sm);
   transition:
