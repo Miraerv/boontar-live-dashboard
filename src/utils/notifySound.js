@@ -4,9 +4,12 @@
  *
  * TV / kiosk: PIN login click unlocks; also listen for touch/pointer/key.
  * If play() fails later (idle policy), re-bind unlock.
+ *
+ * New order: new-order.mp3 then new-order-ykt.mp3 (attention → local voice).
  */
 
 const NEW_ORDER_SOUND_URL = '/sounds/new-order.mp3'
+const NEW_ORDER_YKT_SOUND_URL = '/sounds/new-order-ykt.mp3'
 
 /** @type {HTMLAudioElement | null} */
 let unlockAudio = null
@@ -17,6 +20,10 @@ let gestureBound = false
 
 /** @type {Map<string, HTMLAudioElement>} */
 const clipCache = new Map()
+
+/** Serialize playback so clips do not overlap (new-order chain, packed chimes). */
+/** @type {Promise<void>} */
+let playQueue = Promise.resolve()
 
 function emit() {
   for (const fn of listeners) fn()
@@ -106,6 +113,8 @@ export function isNotifySoundEnabled() {
 export function initNotifySound() {
   if (typeof window === 'undefined') return
   ensureUnlockAudio()
+  getClip(NEW_ORDER_SOUND_URL)
+  getClip(NEW_ORDER_YKT_SOUND_URL)
   // Warm layer clips so packed chimes start faster on TV
   for (let i = 0; i <= 3; i++) {
     getClip(`/sounds/layer-${i}.mp3`)
@@ -120,35 +129,88 @@ export function tryUnlockNotifySound() {
   void unlockFromGesture()
 }
 
+function markDisabledAndRebind() {
+  enabled = false
+  emit()
+  bindGesture()
+}
+
 /**
- * Play a clip by public URL (no-op until first user gesture).
+ * Play one clip and wait until it ends (or fails).
+ * @param {string} url
+ * @returns {Promise<void>}
+ */
+function playClipToEnd(url) {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !enabled || !url) {
+      resolve()
+      return
+    }
+
+    const el = getClip(url) ?? new Audio(url)
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      el.removeEventListener('ended', finish)
+      el.removeEventListener('error', finish)
+      resolve()
+    }
+
+    el.addEventListener('ended', finish)
+    el.addEventListener('error', finish)
+
+    try {
+      el.muted = false
+      el.currentTime = 0
+      const p = el.play()
+      if (p && typeof p.catch === 'function') {
+        p.catch(() => {
+          markDisabledAndRebind()
+          finish()
+        })
+      }
+    } catch {
+      markDisabledAndRebind()
+      finish()
+    }
+  })
+}
+
+/**
+ * Enqueue clips to play sequentially (no overlap).
+ * @param {string[]} urls
+ */
+function enqueueSounds(urls) {
+  if (typeof window === 'undefined' || !enabled || !urls.length) return
+
+  playQueue = playQueue
+    .then(async () => {
+      for (const url of urls) {
+        if (!enabled) break
+        await playClipToEnd(url)
+      }
+    })
+    .catch(() => {
+      // keep queue alive after unexpected errors
+    })
+}
+
+/**
+ * Play a single clip by public URL (queued; no-op until first user gesture).
  * @param {string | null | undefined} url
  */
 export function playNotifySound(url) {
-  if (typeof window === 'undefined' || !enabled || !url) return
-
-  const el = getClip(url) ?? new Audio(url)
-  try {
-    el.muted = false
-    el.currentTime = 0
-    const p = el.play()
-    if (p && typeof p.catch === 'function') {
-      p.catch(() => {
-        enabled = false
-        emit()
-        bindGesture()
-      })
-    }
-  } catch {
-    enabled = false
-    emit()
-    bindGesture()
-  }
+  if (!url) return
+  enqueueSounds([url])
 }
 
-/** Play when a new order arrives. */
+/**
+ * New order: universal alert first, then Yakut voice.
+ * Order matters — short beep grabs attention, ykt is the spoken cue.
+ */
 export function playNewOrderSound() {
-  playNotifySound(NEW_ORDER_SOUND_URL)
+  enqueueSounds([NEW_ORDER_SOUND_URL, NEW_ORDER_YKT_SOUND_URL])
 }
 
 /**
