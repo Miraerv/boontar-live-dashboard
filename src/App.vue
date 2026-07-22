@@ -22,7 +22,7 @@ const storeId = ref(
   loadStoredStoreId(unlockedStoreIds.value, { allowAll: isMaster.value }),
 )
 
-const { enabled: soundEnabled, playNewOrderSound } = useNotifySound()
+const { enabled: soundEnabled, playNewOrderSound, playPackedLayerSound } = useNotifySound()
 const { debugEnabled, metrics: viewportMetrics } = useTvScale()
 
 const {
@@ -42,6 +42,7 @@ const {
   storeIds: unlockedStoreIds,
   onSessionDead: onLogout,
   onNewOrder: playNewOrderSound,
+  onOrderPacked: playPackedLayerSound,
 })
 
 const currentStoreName = computed(() => {

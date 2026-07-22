@@ -3,6 +3,7 @@ import { fetchAllOrders, fetchStoreOrders } from '../api/orders'
 import { ACTIVE_STATUSES, STATUS_UI_MAP, subscribeStoreOrders } from '../api/pusher'
 import { ALL_STORES_ID } from '../constants/stores'
 import { STATUSES } from '../constants/statuses'
+import { resolveOrderLayer } from '../utils/deliveryLayer'
 import { isOrderFromToday } from '../utils/time'
 
 /** Quiet HTTP poll — TV kiosk safety net when Pusher drops or filters events. */
@@ -16,8 +17,9 @@ const POLL_MS = 15_000
  * @param {import('vue').Ref<number[]>} [options.storeIds] warehouses for multi-channel subscribe
  * @param {() => void | Promise<void>} [options.onSessionDead] called on 401/403-style errors
  * @param {() => void} [options.onNewOrder] play sound / notify when a new order id appears
+ * @param {(layer: number | null) => void} [options.onOrderPacked] packed chime by delivery layer
  */
-export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder }) {
+export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder, onOrderPacked }) {
   const orders = ref([])
   const loading = ref(true)
   const error = ref(null)
@@ -86,8 +88,8 @@ export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder })
   }
 
   /**
-   * After a successful fetch: seed or detect new order ids and notify once.
-   * @param {Array<{ orderId?: number|string }>} list
+   * After a successful fetch: seed or detect new order ids and packed transitions.
+   * @param {Array<{ orderId?: number|string, status?: string, layer?: number|null }>} list
    */
   function applyOrderList(list) {
     const nextIds = new Set(list.map((o) => o.orderId).filter((id) => id != null))
@@ -105,6 +107,19 @@ export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder })
       if (hasNew) {
         onNewOrder?.()
       }
+
+      // Packed chime when HTTP catches a transition (Pusher miss / delayed event)
+      const prevById = new Map(
+        orders.value.map((o) => [o.orderId, o]),
+      )
+      for (const o of list) {
+        if (o.orderId == null) continue
+        const prev = prevById.get(o.orderId)
+        if (prev && prev.status !== 'packed' && o.status === 'packed') {
+          onOrderPacked?.(o.layer ?? null)
+        }
+      }
+
       knownOrderIds = nextIds
     }
 
@@ -178,7 +193,12 @@ export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder })
     orders.value = next
   }
 
-  function moveOrRemoveByStatus(orderId, dbStatus) {
+  /**
+   * @param {number|string} orderId
+   * @param {string} dbStatus
+   * @param {{ layer?: number|null, skipPackedSound?: boolean }} [opts]
+   */
+  function moveOrRemoveByStatus(orderId, dbStatus, opts = {}) {
     const idx = orders.value.findIndex((o) => o.orderId === orderId)
 
     if (!ACTIVE_STATUSES.has(dbStatus)) {
@@ -194,9 +214,24 @@ export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder })
       return
     }
 
+    const prev = orders.value[idx]
+    const becamePacked = prev.status !== 'packed' && statusUi === 'packed'
+    const layer =
+      opts.layer != null && Number.isFinite(Number(opts.layer))
+        ? Math.trunc(Number(opts.layer))
+        : (prev.layer ?? null)
+
     const next = [...orders.value]
-    next[idx] = { ...next[idx], status: statusUi }
+    next[idx] = {
+      ...prev,
+      status: statusUi,
+      ...(layer != null ? { layer } : {}),
+    }
     orders.value = next
+
+    if (becamePacked && !opts.skipPackedSound) {
+      onOrderPacked?.(layer)
+    }
   }
 
   /**
@@ -254,9 +289,19 @@ export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder })
       case 'order-assembly':
         moveOrRemoveByStatus(orderId, 'assembly')
         break
-      case 'order-packed':
-        moveOrRemoveByStatus(orderId, 'packed')
+      case 'order-packed': {
+        const board = orders.value.find((o) => o.orderId === orderId)
+        // Prefer pusher delivery_detail; fall back to board layer from last HTTP load
+        const layer = resolveOrderLayer(order) ?? board?.layer ?? null
+        if (!board) {
+          // Not on board yet — still chime, then pull full card via HTTP
+          onOrderPacked?.(layer)
+          scheduleReload(200)
+          break
+        }
+        moveOrRemoveByStatus(orderId, 'packed', { layer })
         break
+      }
       case 'order-taken':
         moveOrRemoveByStatus(orderId, 'taken')
         break
@@ -271,7 +316,9 @@ export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder })
         moveOrRemoveByStatus(orderId, eventName === 'order-completed' ? 'completed' : 'cancelled')
         break
       case 'order-status-changed':
-        moveOrRemoveByStatus(orderId, order.status)
+        moveOrRemoveByStatus(orderId, order.status, {
+          layer: resolveOrderLayer(order),
+        })
         break
       default:
         scheduleReload()

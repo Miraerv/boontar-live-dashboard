@@ -20,6 +20,12 @@ function mapTypeBadge(raw) {
  */
 export function mapOrder(raw) {
   const address = raw.address ?? {}
+  const layerRaw = raw.layer
+  const layer =
+    layerRaw != null && layerRaw !== '' && Number.isFinite(Number(layerRaw))
+      ? Math.trunc(Number(layerRaw))
+      : null
+
   return {
     id: raw.order_number ?? String(raw.id),
     orderId: raw.id,
@@ -32,6 +38,8 @@ export function mapOrder(raw) {
     storageType: raw.storage_type ?? 'ambient',
     paid: Boolean(raw.paid),
     freez: Boolean(raw.freez),
+    /** Delivery zone layer (0–3+); drives packed chime */
+    layer,
     address: {
       text: address.text || 'Адрес не указан',
       distanceKm: address.distance_km ?? null,

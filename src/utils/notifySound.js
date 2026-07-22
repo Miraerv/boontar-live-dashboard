@@ -1,31 +1,50 @@
 /**
- * New-order sound — same model as seller realtime-dash-simplified:
+ * Dashboard sounds — same model as seller realtime-dash-simplified:
  * sound is off until the first user gesture (browser autoplay unlock).
  *
  * TV / kiosk: PIN login click unlocks; also listen for touch/pointer/key.
  * If play() fails later (idle policy), re-bind unlock.
  */
 
-const SOUND_URL = '/sounds/new-order.mp3'
+const NEW_ORDER_SOUND_URL = '/sounds/new-order.mp3'
 
 /** @type {HTMLAudioElement | null} */
-let audio = null
+let unlockAudio = null
 let enabled = false
 /** @type {Set<() => void>} */
 const listeners = new Set()
 let gestureBound = false
 
+/** @type {Map<string, HTMLAudioElement>} */
+const clipCache = new Map()
+
 function emit() {
   for (const fn of listeners) fn()
 }
 
-function ensureAudio() {
-  if (!audio) {
-    audio = new Audio(SOUND_URL)
-    audio.preload = 'auto'
-    audio.volume = 1
+function ensureUnlockAudio() {
+  if (!unlockAudio) {
+    unlockAudio = new Audio(NEW_ORDER_SOUND_URL)
+    unlockAudio.preload = 'auto'
+    unlockAudio.volume = 1
   }
-  return audio
+  return unlockAudio
+}
+
+/**
+ * @param {string} url
+ * @returns {HTMLAudioElement | null}
+ */
+function getClip(url) {
+  if (typeof window === 'undefined' || !url) return null
+  let el = clipCache.get(url)
+  if (!el) {
+    el = new Audio(url)
+    el.preload = 'auto'
+    el.volume = 1
+    clipCache.set(url, el)
+  }
+  return el
 }
 
 /**
@@ -34,7 +53,7 @@ function ensureAudio() {
  */
 async function unlockFromGesture() {
   if (enabled) return
-  const el = ensureAudio()
+  const el = ensureUnlockAudio()
   try {
     el.muted = true
     await el.play()
@@ -86,7 +105,11 @@ export function isNotifySoundEnabled() {
 /** Call on mount: preload + wait for first page interaction (like old dash). */
 export function initNotifySound() {
   if (typeof window === 'undefined') return
-  ensureAudio()
+  ensureUnlockAudio()
+  // Warm layer clips so packed chimes start faster on TV
+  for (let i = 0; i <= 3; i++) {
+    getClip(`/sounds/layer-${i}.mp3`)
+  }
   if (!enabled) bindGesture()
 }
 
@@ -97,11 +120,14 @@ export function tryUnlockNotifySound() {
   void unlockFromGesture()
 }
 
-/** Play Calypso when a new order arrives (no-op until first user gesture). */
-export function playNewOrderSound() {
-  if (typeof window === 'undefined' || !enabled) return
+/**
+ * Play a clip by public URL (no-op until first user gesture).
+ * @param {string | null | undefined} url
+ */
+export function playNotifySound(url) {
+  if (typeof window === 'undefined' || !enabled || !url) return
 
-  const el = ensureAudio()
+  const el = getClip(url) ?? new Audio(url)
   try {
     el.muted = false
     el.currentTime = 0
@@ -118,4 +144,20 @@ export function playNewOrderSound() {
     emit()
     bindGesture()
   }
+}
+
+/** Play when a new order arrives. */
+export function playNewOrderSound() {
+  playNotifySound(NEW_ORDER_SOUND_URL)
+}
+
+/**
+ * Play when an order becomes packed — clip depends on delivery layer (0–3).
+ * @param {number | null | undefined} layer
+ */
+export function playPackedLayerSound(layer) {
+  if (layer == null || !Number.isFinite(Number(layer))) return
+  const n = Math.trunc(Number(layer))
+  if (n < 0 || n > 3) return
+  playNotifySound(`/sounds/layer-${n}.mp3`)
 }

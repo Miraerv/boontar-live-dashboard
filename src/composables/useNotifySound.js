@@ -4,6 +4,7 @@ import {
   isNotifySoundEnabled,
   onNotifySoundChange,
   playNewOrderSound,
+  playPackedLayerSound,
   tryUnlockNotifySound,
 } from '../utils/notifySound'
 
@@ -28,6 +29,7 @@ export function useNotifySound() {
   return {
     enabled,
     playNewOrderSound,
+    playPackedLayerSound,
     tryUnlockNotifySound,
   }
 }
