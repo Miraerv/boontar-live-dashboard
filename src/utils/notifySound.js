@@ -6,7 +6,7 @@
  * If play() fails later (idle policy), re-bind unlock.
  */
 
-const SOUND_URL = '/sounds/calypso.mp3'
+const SOUND_URL = '/sounds/new-order.mp3'
 
 /** @type {HTMLAudioElement | null} */
 let audio = null
