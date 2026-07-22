@@ -19,7 +19,8 @@ SPA  ──ws──────►  Pusher  channel orders-{storeId}
 - HTTP-poll каждые 15с + reload при visibility/reconnect (для TV/kiosk, если Pusher молчит)
 - Звук нового заказа: по `order-created` и когда poll/reload видит новый id (нужен жест: PIN/клик — autoplay policy)
 - Только заказы «сегодня» (календарный день Якутска) — как на backend
-- TV scale: `html` root font-size от ширины CSS viewport (design 1920 → 13px, clamp 11–15); UI в `rem`
+- TV scale: `html` root font-size от layout-ширины (design 1920 → 13px, clamp 11–15); UI в `rem`
+- Half-width HD TV (часто `inner≈960 @ dpr=2` на Full HD): viewport/`design-scale` → layout 1920, чтобы 6 колонок влезали
 - Chrome (toolbar) снизу; debug HUD: `?debug=1` или `localStorage.dashDebug=1`
 
 ## Стек
@@ -53,14 +54,21 @@ src/
 
 ### TV / large screens
 
-Вёрстка **не** читает PPI панели. Браузер работает в CSS-px; `devicePixelRatio` только
-связывает CSS-px с физическими пикселями. Плотность UI задаётся:
+Вёрстка **не** читает PPI панели как «плотность». Браузер работает в CSS-px;
+`devicePixelRatio` связывает CSS-px с физическими пикселями. Плотность UI:
 
 1. CSS fallback: `html { font-size: clamp(11px, 100vw/1920*13px, 15px) }`
-2. JS `applyTvScale()` / `initTvScale()` на resize — то же правило
+2. JS `applyTvPresentation()` / `initTvScale()` на resize
 3. Компоненты в `rem` / CSS-переменных `--text-*`, `--space-*`
 
-На складе: открыть `https://dash…/?debug=1` → плашка `inner / screen / dpr / root`.
+**Half-width HD (частый баг складских TV):** WebView отдаёт `inner≈960×540`, `dpr=2`
+на панели 1920×1080. При `width=device-width` доска получает только 960 CSS-px,
+колонки не влезают. Детект `isHalfWidthHdPanel` → `meta viewport width=1920`
+(inline в `index.html` + runtime), а если `innerWidth` не вырос — transform
+`design-scale` на `html` (layout 1920, scale down в визуальный viewport).
+
+На складе: `https://dash…/?debug=1` → плашка `inner / screen / dpr / layout / root`.
+Ожидание на проблемном TV после фикса: `layout 1920`, `root ~13px` (не 11).
 
 ## Setup
 

@@ -17,6 +17,10 @@ defineProps({
       <dd>{{ metrics.screenWidth }}×{{ metrics.screenHeight }}</dd>
       <dt>dpr</dt>
       <dd>{{ Number(metrics.devicePixelRatio).toFixed(2) }}</dd>
+      <dt>layout</dt>
+      <dd>
+        {{ metrics.layoutWidth ?? '—' }}{{ metrics.halfWidthHd ? ' · halfHD' : '' }}
+      </dd>
       <dt>root</dt>
       <dd>{{ Number(metrics.rootPx).toFixed(2) }}px</dd>
       <dt>scale</dt>

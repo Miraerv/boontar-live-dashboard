@@ -55,13 +55,16 @@ const addrRem =
   /\.address-box__value[\s\S]*?font-size:\s*(var\(--text-md\)|[\d.]+rem)/.test(card)
 const bodyRem = /font-size:\s*var\(--text-base\)/.test(tokens)
 const hasClampRoot = /clamp\(\s*11px[\s\S]*1920[\s\S]*15px\s*\)/.test(tokens)
-const hasTvScaleUtil = /computeRootFontPx/.test(tvScale) && /applyTvScale/.test(main)
+const hasTvScaleUtil =
+  /computeRootFontPx/.test(tvScale) &&
+  (/applyTvPresentation/.test(main) || /applyTvScale/.test(main)) &&
+  /isHalfWidthHdPanel/.test(tvScale)
 const fontsOk = idRem && priceRem && addrRem && bodyRem && hasClampRoot && hasTvScaleUtil
 check(
   'font-density-rem-scale',
   fontsOk,
   fontsOk
-    ? 'rem type scale + html root clamp + tvScale apply'
+    ? 'rem type scale + html root clamp + half-width HD presentation'
     : `idRem=${idRem} priceRem=${priceRem} addrRem=${addrRem} bodyRem=${bodyRem} clamp=${hasClampRoot} tvScale=${hasTvScaleUtil}`,
 )
 

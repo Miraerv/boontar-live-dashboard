@@ -1,10 +1,10 @@
 import { createApp } from 'vue'
 
 import './styles/tokens.css'
-import { applyTvScale } from './utils/tvScale'
+import { applyTvPresentation } from './utils/tvScale'
 import App from './App.vue'
 
-// Apply root rem scale before first paint when possible (CSS clamp already in tokens)
-applyTvScale()
+// Viewport compensation (half-width HD TVs) + root rem scale before mount
+applyTvPresentation()
 
 createApp(App).mount('#app')

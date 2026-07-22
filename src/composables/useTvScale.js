@@ -1,6 +1,6 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import {
-  applyTvScale,
+  applyTvPresentation,
   initTvScale,
   isViewportDebugEnabled,
   readViewportMetrics,
@@ -26,7 +26,7 @@ export function useTvScale() {
   onMounted(() => {
     // initTvScale already applies; re-apply in case SSR/order matters
     disposeScale = initTvScale()
-    applyTvScale()
+    applyTvPresentation()
 
     debugEnabled.value = isViewportDebugEnabled()
     if (debugEnabled.value) {
