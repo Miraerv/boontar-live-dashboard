@@ -8,7 +8,7 @@
     <!--
       Default: mobile-friendly. Warehouse TVs often report ~960 CSS px @ dpr=2
       on a Full HD panel; the inline bootstrap below upgrades viewport to 1920
-      so the kanban lays out at design density before first paint.
+      (+ initial-scale) so the kanban can lay out at design density.
     -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script>
@@ -24,7 +24,13 @@
           var landscape = !cssH || cssW >= cssH * 0.85
           if (!(compressed && nearFullHd && landscape)) return
           var meta = document.querySelector('meta[name="viewport"]')
-          if (meta) meta.setAttribute('content', 'width=1920')
+          var initial = cssW / 1920
+          if (meta) {
+            meta.setAttribute(
+              'content',
+              'width=1920, initial-scale=' + initial.toFixed(4),
+            )
+          }
           document.documentElement.dataset.tvViewport = 'design'
         } catch (e) {}
       })()
@@ -33,7 +39,15 @@
     <title>BOON DASH</title>
   </head>
   <body>
-    <div id="app"></div>
+    <!--
+      tv-frame / tv-stage: on half-width HD TVs JS sets design width 1920 + zoom/scale.
+      On normal viewports they are just a full-size height chain (see tokens.css).
+    -->
+    <div id="tv-frame">
+      <div id="tv-stage">
+        <div id="app"></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

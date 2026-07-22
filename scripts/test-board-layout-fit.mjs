@@ -1,9 +1,9 @@
 /**
- * Red-capable feedback loop: TV board column fit + card width density.
+ * Red-capable feedback loop: TV board column fit + half-width HD compensation.
  *
- * Warehouse TV repro (debug HUD):
+ * Warehouse TV repro (debug HUD photo):
  *   inner 960×518, dpr 2 → physical Full HD but only 960 CSS px
- *   → min board ~1020px > 960 → columns do not fit (user symptom).
+ *   → min board ~1020px > 960 → columns do not fit without stage/zoom.
  *
  * Exit 0 = green, exit 1 = red.
  */
@@ -14,6 +14,7 @@ import {
   DESIGN_WIDTH,
   ROOT_AT_DESIGN_PX,
   computeRootFontPx,
+  computeVisualScale,
   isHalfWidthHdPanel,
   resolveLayoutWidth,
 } from '../src/utils/tvScale.js'
@@ -22,8 +23,10 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const boardSrc = fs.readFileSync(path.join(rootDir, 'src/components/OrdersBoard.vue'), 'utf8')
 const statusesSrc = fs.readFileSync(path.join(rootDir, 'src/constants/statuses.js'), 'utf8')
 const indexHtml = fs.readFileSync(path.join(rootDir, 'index.html'), 'utf8')
+const tokensCss = fs.readFileSync(path.join(rootDir, 'src/styles/tokens.css'), 'utf8')
 const tvScaleSrc = fs.readFileSync(path.join(rootDir, 'src/utils/tvScale.js'), 'utf8')
 const mainSrc = fs.readFileSync(path.join(rootDir, 'src/main.js'), 'utf8')
+const debugSrc = fs.readFileSync(path.join(rootDir, 'src/components/ViewportDebug.vue'), 'utf8')
 
 const minmaxMatch = boardSrc.match(/minmax\(\s*([\d.]+)(rem|px)\s*,\s*([^)]+)\)/)
 const colCount = (statusesSrc.match(/\{\s*key:/g) || []).length
@@ -31,9 +34,6 @@ const colCount = (statusesSrc.match(/\{\s*key:/g) || []).length
 /** Tokens: --space-3 gap, --space-4 horizontal padding on board */
 const GAP_REM = 0.75
 const PAD_X_REM = 2
-
-/** Comfort cap: design equal-share at 1920 is ~308px */
-const MAX_COMFORTABLE_COL_PX = 320
 
 /** @type {{ id: string, ok: boolean, detail: string }[]} */
 const checks = []
@@ -99,6 +99,7 @@ const tvMinBoard = boardMinPx(tvRoot)
 const tvFitsOnLayout = tvMinBoard <= tvLayoutW
 const tvFitsOnRawCss = boardMinPx(computeRootFontPx(tvCssW)) <= tvCssW
 const tvVisibleOnLayout = visibleCols(tvLayoutW, tvRoot)
+const tvVisual = computeVisualScale(tvCssW, DESIGN_WIDTH)
 
 check('tv-repro-detected', tvDetected, `isHalfWidthHdPanel(960@2)=${tvDetected}`)
 check(
@@ -112,19 +113,56 @@ check(
   `root=${tvRoot} (want ${ROOT_AT_DESIGN_PX}, was 11 before fix)`,
 )
 check(
-  'tv-repro-raw-css-overflows',
-  !tvFitsOnRawCss,
-  `without compensation minBoard@960=${boardMinPx(computeRootFontPx(tvCssW)).toFixed(0)} > 960 (documents the bug)`,
+  'tv-repro-visual-scale',
+  tvVisual === 0.5,
+  `visual scale 960/1920 = ${tvVisual}`,
 )
 check(
-  'tv-repro-columns-fit',
+  'tv-repro-raw-css-overflows',
+  !tvFitsOnRawCss,
+  `without stage minBoard@960=${boardMinPx(computeRootFontPx(tvCssW)).toFixed(0)} > 960 (documents the bug)`,
+)
+check(
+  'tv-repro-columns-fit-on-layout',
   tvFitsOnLayout && tvVisibleOnLayout === colCount,
   `layout ${tvLayoutW}: minBoard=${tvMinBoard.toFixed(0)} visible ${tvVisibleOnLayout}/${colCount}`,
 )
 
-// Bootstrap must wire compensation (meta inline + applyTvPresentation)
+// Must NOT use transform-on-html (failed on warehouse TV); stage + zoom instead
+const usesHtmlTransform =
+  /html\.style\.transform\s*=/.test(tvScaleSrc) && !/applyDesignStage/.test(tvScaleSrc)
+const hasStageApi =
+  /export function applyDesignStage/.test(tvScaleSrc) &&
+  /supportsCssZoom/.test(tvScaleSrc) &&
+  /design-zoom/.test(tvScaleSrc)
+const hasStageDom =
+  /id="tv-frame"/.test(indexHtml) &&
+  /id="tv-stage"/.test(indexHtml) &&
+  /id="app"/.test(indexHtml)
+const hasStageCss = /#tv-frame/.test(tokensCss) && /#tv-stage/.test(tokensCss)
+const hasModeInDebug = /metrics\.mode/.test(debugSrc) && /visualScale|visual/.test(debugSrc)
+
+check(
+  'tv-no-html-transform-hack',
+  !usesHtmlTransform && hasStageApi,
+  hasStageApi ? 'applyDesignStage + design-zoom path present' : 'missing stage/zoom API',
+)
+check(
+  'tv-stage-dom',
+  hasStageDom && hasStageCss,
+  hasStageDom && hasStageCss
+    ? 'tv-frame/tv-stage in index.html + tokens.css'
+    : `dom=${hasStageDom} css=${hasStageCss}`,
+)
+check(
+  'tv-debug-mode-field',
+  hasModeInDebug,
+  hasModeInDebug ? 'ViewportDebug shows mode (+ visual)' : 'debug HUD missing mode',
+)
+
+// Bootstrap must wire compensation
 const hasInlineBootstrap =
-  /devicePixelRatio/.test(indexHtml) && /width=1920|width=\$\{?DESIGN|width=1920/.test(indexHtml)
+  /devicePixelRatio/.test(indexHtml) && /initial-scale/.test(indexHtml) && /1920/.test(indexHtml)
 const hasPresentation =
   /applyTvPresentation/.test(mainSrc) && /isHalfWidthHdPanel/.test(tvScaleSrc)
 check(
@@ -157,15 +195,6 @@ for (const vw of tvViewports) {
     `root=${root} minBoard=${minB.toFixed(0)} col≈${colW.toFixed(0)}px visible ${vis}/${colCount}`,
   )
 }
-
-// After layout compensation, 4K CSS width still grows with 1fr — soft comfort checks
-// (secondary to the TV half-width bug; do not fail the primary loop on 4K alone)
-const colAt4k = colWidthWhenFit(3840, computeRootFontPx(3840))
-check(
-  'cards-4k-note',
-  true,
-  `at CSS 3840 each col≈${colAt4k.toFixed(0)}px (comfort ref ${MAX_COMFORTABLE_COL_PX}; not blocking)`,
-)
 
 check(
   'not-using-old-225px-min',

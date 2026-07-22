@@ -7,9 +7,11 @@ import {
   ROOT_MAX_PX,
   ROOT_MIN_PX,
   computeRootFontPx,
+  computeVisualScale,
   isHalfWidthHdPanel,
   readViewportMetrics,
   resolveLayoutWidth,
+  supportsCssZoom,
 } from '../src/utils/tvScale.js'
 
 function assert(cond, msg) {
@@ -45,7 +47,7 @@ const highDpr = computeRootFontPx(1920)
 assert(lowDpr === highDpr, 'root independent of dpr at full CSS width')
 
 // --- Warehouse TV repro (photo debug HUD) ---
-// inner 960×518, screen 960×540, dpr 2.00, root was stuck at 11px
+// inner 960×518, screen 960×540, dpr 2.00
 const tvEnv = {
   innerWidth: 960,
   innerHeight: 518,
@@ -55,10 +57,12 @@ const tvEnv = {
 }
 assert(isHalfWidthHdPanel(tvEnv) === true, 'TV 960@2x is half-width HD')
 assert(resolveLayoutWidth(tvEnv) === 1920, 'TV layout resolves to 1920')
+assert(computeVisualScale(960, DESIGN_WIDTH) === 0.5, 'TV visual scale 0.5')
 const tvMetrics = readViewportMetrics(tvEnv)
 assert(tvMetrics.layoutWidth === 1920, 'metrics layoutWidth 1920 on TV')
 assert(tvMetrics.rootPx === ROOT_AT_DESIGN_PX, 'TV root at design (13), not floor 11')
 assert(tvMetrics.halfWidthHd === true, 'metrics flags halfWidthHd')
+assert(tvMetrics.visualScale === 0.5, 'metrics visualScale 0.5 for 960→1920')
 
 // Phones must not be treated as half-width HD warehouse TVs
 assert(
@@ -79,5 +83,9 @@ assert(
   isHalfWidthHdPanel({ innerWidth: 1920, innerHeight: 1080, devicePixelRatio: 1 }) === false,
   'native 1080p not half-width',
 )
+
+// zoom detection helper
+assert(supportsCssZoom({ zoom: '' }) === true, 'style bag with zoom key → true')
+assert(supportsCssZoom({}) === false || typeof document !== 'undefined', 'empty bag false in pure node')
 
 console.log('PASS test-tv-scale')

@@ -5,6 +5,16 @@ defineProps({
     default: null,
   },
 })
+
+/**
+ * @param {unknown} n
+ * @param {number} [digits]
+ */
+function fmt(n, digits = 2) {
+  const x = Number(n)
+  if (!Number.isFinite(x)) return '—'
+  return x.toFixed(digits)
+}
 </script>
 
 <template>
@@ -16,15 +26,25 @@ defineProps({
       <dt>screen</dt>
       <dd>{{ metrics.screenWidth }}×{{ metrics.screenHeight }}</dd>
       <dt>dpr</dt>
-      <dd>{{ Number(metrics.devicePixelRatio).toFixed(2) }}</dd>
+      <dd>{{ fmt(metrics.devicePixelRatio) }}</dd>
       <dt>layout</dt>
       <dd>
         {{ metrics.layoutWidth ?? '—' }}{{ metrics.halfWidthHd ? ' · halfHD' : '' }}
       </dd>
+      <dt>mode</dt>
+      <dd>{{ metrics.mode ?? '—' }}</dd>
+      <dt>visual</dt>
+      <dd>
+        {{
+          metrics.visualScale != null && Number(metrics.visualScale) !== 1
+            ? `${fmt(metrics.visualScale, 3)}×`
+            : '—'
+        }}
+      </dd>
       <dt>root</dt>
-      <dd>{{ Number(metrics.rootPx).toFixed(2) }}px</dd>
+      <dd>{{ fmt(metrics.rootPx) }}px</dd>
       <dt>scale</dt>
-      <dd>{{ Number(metrics.scale).toFixed(3) }}× (design {{ metrics.designWidth }})</dd>
+      <dd>{{ fmt(metrics.scale, 3) }}× (design {{ metrics.designWidth }})</dd>
     </dl>
     <p class="vp-debug__hint">?debug=1 or localStorage dashDebug=1</p>
   </aside>
@@ -36,7 +56,7 @@ defineProps({
   top: 0.5rem;
   right: 0.5rem;
   z-index: 9999;
-  max-width: 16rem;
+  max-width: 17rem;
   padding: 0.55rem 0.65rem;
   border-radius: 0.5rem;
   background: rgba(20, 21, 40, 0.88);

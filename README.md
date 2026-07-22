@@ -63,12 +63,18 @@ src/
 
 **Half-width HD (частый баг складских TV):** WebView отдаёт `inner≈960×540`, `dpr=2`
 на панели 1920×1080. При `width=device-width` доска получает только 960 CSS-px,
-колонки не влезают. Детект `isHalfWidthHdPanel` → `meta viewport width=1920`
-(inline в `index.html` + runtime), а если `innerWidth` не вырос — transform
-`design-scale` на `html` (layout 1920, scale down в визуальный viewport).
+колонки не влезают. Детект `isHalfWidthHdPanel` →:
 
-На складе: `https://dash…/?debug=1` → плашка `inner / screen / dpr / layout / root`.
-Ожидание на проблемном TV после фикса: `layout 1920`, `root ~13px` (не 11).
+1. `meta viewport width=1920, initial-scale=…` (inline + runtime)
+2. Если `innerWidth` остаётся ~960 — оболочка `#tv-frame` / `#tv-stage`:
+   layout **1920** + Chromium **`zoom`** (`mode=design-zoom`), иначе
+   `transform: scale` на stage (`mode=design-scale`).  
+   **Не** `transform` на `<html>` — на TV WebView это оставляло grid в 960px
+   при `root=13` и усугубляло overflow.
+
+На складе: `https://dash…/?debug=1` → `inner / dpr / layout / mode / visual / root`.  
+Ожидание на проблемном TV: `layout 1920`, `mode design-zoom|design-scale`,
+`visual 0.5×`, `root ~13px`, все 6 колонок без горизонтального скролла.
 
 ## Setup
 

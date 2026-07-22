@@ -9,10 +9,15 @@
  * `width=device-width` the board then gets only 960 CSS px, while the kanban
  * needs ~1200+ at design density → horizontal scroll and "huge" cards.
  *
- * We:
- * 1. Detect that half-width HD case
- * 2. Force the layout viewport to DESIGN_WIDTH (meta viewport and/or transform)
- * 3. Set `html { font-size }` so rem type/spacing track the *layout* width
+ * Fix path:
+ * 1. Detect half-width HD (inner≈960 @ dpr=2 → physical ~1920)
+ * 2. Prefer meta viewport width=1920 (+ initial-scale)
+ * 3. If innerWidth stays compressed: lay out on #tv-stage at DESIGN_WIDTH and
+ *    fit it with Chromium `zoom` (layout-affecting) or transform fallback
+ * 4. Set html font-size from *layout* width so rem tracks design density
+ *
+ * Transform-on-<html> is intentionally avoided — it left flex/overflow children
+ * at ~960 CSS px while root rem jumped to 13px (worse overflow on warehouse TVs).
  */
 
 /** Logical design width in CSS px (Full HD board). */
@@ -71,6 +76,18 @@ export function resolveLayoutWidth(env = {}) {
 }
 
 /**
+ * Visual scale to fit design layout into compressed CSS viewport (e.g. 960/1920 = 0.5).
+ * @param {number} cssWidth
+ * @param {number} [layoutWidth=DESIGN_WIDTH]
+ */
+export function computeVisualScale(cssWidth, layoutWidth = DESIGN_WIDTH) {
+  const w = Number(cssWidth)
+  const layout = Number(layoutWidth) || DESIGN_WIDTH
+  if (!Number.isFinite(w) || w <= 0 || layout <= 0) return 1
+  return w / layout
+}
+
+/**
  * @param {number} viewportWidth CSS layout width (e.g. resolved layout width)
  * @returns {number} root font-size in CSS px
  */
@@ -79,6 +96,26 @@ export function computeRootFontPx(viewportWidth) {
   if (!Number.isFinite(w) || w <= 0) return ROOT_AT_DESIGN_PX
   const raw = (w / DESIGN_WIDTH) * ROOT_AT_DESIGN_PX
   return Math.min(ROOT_MAX_PX, Math.max(ROOT_MIN_PX, raw))
+}
+
+/**
+ * Whether this runtime likely supports CSS zoom (Chromium / Android WebView).
+ * Pure helper for tests — pass a mock element style bag when needed.
+ * @param {{ zoom?: unknown } | CSSStyleDeclaration | null | undefined} [style]
+ */
+export function supportsCssZoom(style) {
+  if (style && Object.prototype.hasOwnProperty.call(style, 'zoom')) return true
+  if (typeof CSS !== 'undefined' && typeof CSS.supports === 'function') {
+    try {
+      if (CSS.supports('zoom', '0.5')) return true
+    } catch {
+      // ignore
+    }
+  }
+  if (typeof document !== 'undefined') {
+    return 'zoom' in document.documentElement.style
+  }
+  return false
 }
 
 /**
@@ -109,6 +146,22 @@ export function readViewportMetrics(env = {}) {
   })
   const rootPx = computeRootFontPx(layoutWidth)
 
+  /** @type {string} */
+  let mode = 'native'
+  /** @type {number|null} */
+  let visualScale = null
+  if (typeof document !== 'undefined') {
+    const ds = document.documentElement.dataset
+    if (ds.tvMode) mode = ds.tvMode
+    if (ds.tvVisualScale) {
+      const vs = Number(ds.tvVisualScale)
+      if (Number.isFinite(vs)) visualScale = vs
+    }
+  }
+  if (visualScale == null && halfWidthHd) {
+    visualScale = computeVisualScale(innerWidth, DESIGN_WIDTH)
+  }
+
   return {
     innerWidth,
     innerHeight,
@@ -117,6 +170,8 @@ export function readViewportMetrics(env = {}) {
     screenHeight,
     layoutWidth,
     halfWidthHd,
+    mode,
+    visualScale,
     rootPx,
     designWidth: DESIGN_WIDTH,
     scale: rootPx / ROOT_AT_DESIGN_PX,
@@ -130,17 +185,19 @@ export function readViewportMetrics(env = {}) {
 export function applyTvViewportMeta() {
   if (typeof document === 'undefined' || typeof window === 'undefined') return false
 
+  const cssW = window.innerWidth
+  const cssH = window.innerHeight
+  const dpr = window.devicePixelRatio || 1
   const half = isHalfWidthHdPanel({
-    innerWidth: window.innerWidth,
-    innerHeight: window.innerHeight,
-    devicePixelRatio: window.devicePixelRatio,
+    innerWidth: cssW,
+    innerHeight: cssH,
+    devicePixelRatio: dpr,
   })
 
   const meta = document.querySelector('meta[name="viewport"]')
   if (!meta) return false
 
   if (!half) {
-    // Restore mobile-friendly default when not on compressed HD TV
     const def = 'width=device-width, initial-scale=1.0'
     if (meta.getAttribute('content') !== def && document.documentElement.dataset.tvViewport === 'design') {
       meta.setAttribute('content', def)
@@ -149,7 +206,9 @@ export function applyTvViewportMeta() {
     return false
   }
 
-  const desired = `width=${DESIGN_WIDTH}`
+  const initial = computeVisualScale(cssW, DESIGN_WIDTH)
+  // Explicit initial-scale helps WebViews that ignore width= alone
+  const desired = `width=${DESIGN_WIDTH}, initial-scale=${initial.toFixed(4)}`
   if (meta.getAttribute('content') !== desired) {
     meta.setAttribute('content', desired)
   }
@@ -158,35 +217,128 @@ export function applyTvViewportMeta() {
 }
 
 /**
- * Transform fallback when viewport meta does not expand innerWidth.
- * Lays out at DESIGN_WIDTH and scales down to the visual CSS width.
- *
- * @param {{ innerWidth: number, innerHeight: number, active: boolean }} opts
+ * Clear legacy html-level transform/zoom from earlier deploys.
  */
-function applyDesignTransform(opts) {
+function clearHtmlCompensation() {
   if (typeof document === 'undefined') return
   const html = document.documentElement
+  html.style.width = ''
+  html.style.minHeight = ''
+  html.style.height = ''
+  html.style.transform = ''
+  html.style.transformOrigin = ''
+  html.style.zoom = ''
+  html.style.overflow = ''
+}
 
-  if (!opts.active) {
-    if (html.dataset.tvLayout === 'design-scale') {
-      html.style.width = ''
-      html.style.minHeight = ''
-      html.style.transform = ''
-      html.style.transformOrigin = ''
-      delete html.dataset.tvLayout
-    }
-    return
+/**
+ * Reset #tv-frame / #tv-stage to a transparent full-size shell (native desktop/phone).
+ */
+function resetStageShell() {
+  if (typeof document === 'undefined') return
+  const frame = document.getElementById('tv-frame')
+  const stage = document.getElementById('tv-stage')
+  if (frame) {
+    frame.removeAttribute('style')
+    frame.classList.remove('tv-frame--active')
+  }
+  if (stage) {
+    stage.removeAttribute('style')
+    stage.classList.remove('tv-stage--active')
+  }
+  if (typeof document !== 'undefined') {
+    document.body?.classList.remove('tv-halfhd')
+  }
+  clearHtmlCompensation()
+  delete document.documentElement.dataset.tvLayout
+  delete document.documentElement.dataset.tvVisualScale
+}
+
+/**
+ * Fit design-width stage into compressed visual viewport.
+ * Prefer CSS zoom (Chromium) — it affects layout. Transform is fallback only.
+ *
+ * @param {{ innerWidth: number, innerHeight: number, active: boolean }} opts
+ * @returns {{ mode: 'native' | 'design-zoom' | 'design-scale', visualScale: number, layoutWidth: number }}
+ */
+export function applyDesignStage(opts) {
+  if (typeof document === 'undefined') {
+    return { mode: 'native', visualScale: 1, layoutWidth: DESIGN_WIDTH }
   }
 
-  const scale = opts.innerWidth / DESIGN_WIDTH
-  if (!(scale > 0 && scale < 1)) return
+  if (!opts.active) {
+    resetStageShell()
+    document.documentElement.dataset.tvMode = 'native'
+    return { mode: 'native', visualScale: 1, layoutWidth: DESIGN_WIDTH }
+  }
 
-  const layoutH = opts.innerHeight / scale
-  html.style.width = `${DESIGN_WIDTH}px`
-  html.style.minHeight = `${layoutH}px`
-  html.style.transformOrigin = 'top left'
-  html.style.transform = `scale(${scale})`
-  html.dataset.tvLayout = 'design-scale'
+  const frame = document.getElementById('tv-frame')
+  const stage = document.getElementById('tv-stage')
+  // No shell in DOM (tests / odd mount) — avoid broken html transform; densify root only
+  if (!frame || !stage) {
+    clearHtmlCompensation()
+    document.documentElement.dataset.tvMode = 'no-stage'
+    delete document.documentElement.dataset.tvLayout
+    return { mode: 'no-stage', visualScale: 1, layoutWidth: DESIGN_WIDTH }
+  }
+
+  const visualScale = computeVisualScale(opts.innerWidth, DESIGN_WIDTH)
+  if (!(visualScale > 0 && visualScale < 1)) {
+    resetStageShell()
+    document.documentElement.dataset.tvMode = 'native'
+    return { mode: 'native', visualScale: 1, layoutWidth: DESIGN_WIDTH }
+  }
+
+  const layoutH = opts.innerHeight / visualScale
+
+  // Always clear legacy html hacks
+  clearHtmlCompensation()
+
+  document.body.classList.add('tv-halfhd')
+  frame.classList.add('tv-frame--active')
+  stage.classList.add('tv-stage--active')
+
+  // Frame clips to the visual CSS viewport
+  frame.style.cssText = [
+    'position:fixed',
+    'inset:0',
+    'width:100%',
+    'height:100%',
+    'margin:0',
+    'padding:0',
+    'overflow:hidden',
+    'z-index:0',
+  ].join(';')
+
+  stage.style.width = `${DESIGN_WIDTH}px`
+  stage.style.height = `${layoutH}px`
+  stage.style.position = 'absolute'
+  stage.style.top = '0'
+  stage.style.left = '0'
+  stage.style.margin = '0'
+  stage.style.padding = '0'
+  stage.style.transformOrigin = 'top left'
+  stage.style.boxSizing = 'border-box'
+
+  /** @type {'design-zoom' | 'design-scale'} */
+  let mode
+  if (supportsCssZoom(stage.style)) {
+    // zoom changes used layout size in Chromium — board flex/grid see 1920px
+    stage.style.zoom = String(visualScale)
+    stage.style.transform = 'none'
+    mode = 'design-zoom'
+  } else {
+    stage.style.zoom = ''
+    stage.style.transform = `scale(${visualScale})`
+    mode = 'design-scale'
+  }
+
+  document.documentElement.dataset.tvMode = mode
+  document.documentElement.dataset.tvLayout = mode
+  document.documentElement.dataset.tvVisualScale = String(visualScale)
+  document.documentElement.dataset.tvLayoutWidth = String(DESIGN_WIDTH)
+
+  return { mode, visualScale, layoutWidth: DESIGN_WIDTH }
 }
 
 /**
@@ -213,8 +365,8 @@ export function applyTvScale(viewportWidth) {
 }
 
 /**
- * Full apply: viewport meta → transform fallback if still compressed → root rem.
- * @returns {{ layoutWidth: number, rootPx: number, halfWidthHd: boolean, mode: string }}
+ * Full apply: viewport meta → stage zoom/scale if still compressed → root rem.
+ * @returns {{ layoutWidth: number, rootPx: number, halfWidthHd: boolean, mode: string, visualScale: number }}
  */
 export function applyTvPresentation() {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -223,6 +375,7 @@ export function applyTvPresentation() {
       rootPx: ROOT_AT_DESIGN_PX,
       halfWidthHd: false,
       mode: 'ssr',
+      visualScale: 1,
     }
   }
 
@@ -246,29 +399,56 @@ export function applyTvPresentation() {
     devicePixelRatio: dpr,
   })
 
-  /** @type {'native' | 'viewport-meta' | 'design-scale'} */
-  let mode
+/** @type {{ mode: string, visualScale: number, rootBase: number }} */
+  let result
   if (stillHalf) {
-    // Meta alone did not expand CSS layout — scale design surface into visual viewport
-    applyDesignTransform({ innerWidth: w2, innerHeight: h2, active: true })
-    mode = 'design-scale'
+    // Meta alone did not expand CSS layout — stage at design width + zoom/scale
+    const stage = applyDesignStage({
+      innerWidth: w2,
+      innerHeight: h2,
+      active: true,
+    })
+    result = {
+      mode: stage.mode,
+      visualScale: stage.visualScale,
+      rootBase: DESIGN_WIDTH,
+    }
+  } else if (half) {
+    // Meta expanded layout (or will after paint) — no stage scale needed
+    applyDesignStage({ innerWidth: w2, innerHeight: h2, active: false })
+    result = {
+      mode: 'viewport-meta',
+      visualScale: 1,
+      rootBase: resolveLayoutWidth({
+        innerWidth: w2,
+        innerHeight: h2,
+        devicePixelRatio: dpr,
+      }),
+    }
+    document.documentElement.dataset.tvMode = result.mode
   } else {
-    applyDesignTransform({ innerWidth: w2, innerHeight: h2, active: false })
-    mode = half ? 'viewport-meta' : 'native'
+    applyDesignStage({ innerWidth: w2, innerHeight: h2, active: false })
+    result = {
+      mode: 'native',
+      visualScale: 1,
+      rootBase: resolveLayoutWidth({
+        innerWidth: w2,
+        innerHeight: h2,
+        devicePixelRatio: dpr,
+      }),
+    }
+    document.documentElement.dataset.tvMode = result.mode
   }
 
-  const layoutWidth = resolveLayoutWidth({
-    innerWidth: stillHalf ? cssW : w2,
-    innerHeight: stillHalf ? cssH : h2,
-    devicePixelRatio: dpr,
-  })
-  // When transform is active, always scale rem to DESIGN_WIDTH
-  const rootBase = mode === 'design-scale' ? DESIGN_WIDTH : layoutWidth
-  const rootPx = applyTvScale(rootBase)
+  const rootPx = applyTvScale(result.rootBase)
 
-  document.documentElement.dataset.tvMode = mode
-
-  return { layoutWidth: rootBase, rootPx, halfWidthHd: half || stillHalf, mode }
+  return {
+    layoutWidth: result.rootBase,
+    rootPx,
+    halfWidthHd: half || stillHalf,
+    mode: result.mode,
+    visualScale: result.visualScale,
+  }
 }
 
 /**
@@ -283,7 +463,7 @@ export function initTvScale() {
   }
 
   apply()
-  // Meta viewport changes often settle on the next frame
+  // Meta viewport + zoom often settle on the next frame
   requestAnimationFrame(apply)
   window.addEventListener('resize', apply, { passive: true })
   window.addEventListener('orientationchange', apply, { passive: true })

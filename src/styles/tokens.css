@@ -77,8 +77,30 @@ html {
 
 html,
 body,
+#tv-frame,
+#tv-stage,
 #app {
   height: 100%;
+}
+
+/* Pass-through shell; half-width HD activates fixed clip + zoom via tvScale.js */
+#tv-frame,
+#tv-stage {
+  width: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+#tv-stage {
+  /* Keep #app filling the stage when design-zoom/scale is active */
+  display: flex;
+  flex-direction: column;
+}
+
+#tv-stage > #app {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
 }
 
 body {
@@ -90,6 +112,13 @@ body {
   background: var(--bg-page);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Lock document scroll when stage is scaled into a fixed frame */
+body.tv-halfhd {
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
 }
 
 button,
