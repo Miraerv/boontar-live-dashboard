@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useDashboardAuth } from '../composables/useDashboardAuth'
+import { tryUnlockNotifySound } from '../utils/notifySound'
 
 const emit = defineEmits(['unlocked'])
 
@@ -10,6 +11,8 @@ const error = ref('')
 const submitting = ref(false)
 
 async function onSubmit() {
+  // PIN submit is a user gesture — unlock autoplay for TV kiosk sound
+  tryUnlockNotifySound()
   error.value = ''
   submitting.value = true
   try {

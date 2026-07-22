@@ -48,6 +48,10 @@ export function subscribeStoreOrders({ storeId, onEvent, onConnectionChange }) {
     // seller uses encrypted: true — both forceTLS/encrypted work on modern pusher-js
     forceTLS: true,
     enabledTransports: ['ws', 'wss'],
+    // TV / kiosk: stay aggressive on reconnect (mirrors realtime-dash-simplified)
+    activityTimeout: 120_000,
+    pongTimeout: 30_000,
+    unavailableTimeout: 10_000,
   })
 
   const channelName = `orders-${storeId}`

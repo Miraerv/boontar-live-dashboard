@@ -4,9 +4,10 @@ import {
   isNotifySoundEnabled,
   onNotifySoundChange,
   playNewOrderSound,
+  tryUnlockNotifySound,
 } from '../utils/notifySound'
 
-/** Same mental model as seller dash: red until first click, then green. */
+/** Same mental model as seller dash: red until first gesture, then green. */
 export function useNotifySound() {
   const enabled = ref(isNotifySoundEnabled())
 
@@ -27,5 +28,6 @@ export function useNotifySound() {
   return {
     enabled,
     playNewOrderSound,
+    tryUnlockNotifySound,
   }
 }

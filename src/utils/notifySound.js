@@ -1,6 +1,9 @@
 /**
  * New-order sound — same model as seller realtime-dash-simplified:
- * sound is off until the first click anywhere on the page (browser autoplay unlock).
+ * sound is off until the first user gesture (browser autoplay unlock).
+ *
+ * TV / kiosk: PIN login click unlocks; also listen for touch/pointer/key.
+ * If play() fails later (idle policy), re-bind unlock.
  */
 
 const SOUND_URL = '/sounds/calypso.mp3'
@@ -39,7 +42,7 @@ async function unlockFromGesture() {
     el.currentTime = 0
     el.muted = false
   } catch {
-    // Still mark enabled after a real click — Chrome often allows later play() anyway
+    // Still mark enabled after a real gesture — Chrome often allows later play() anyway
     el.muted = false
   }
   enabled = true
@@ -54,15 +57,20 @@ function onGesture() {
 function bindGesture() {
   if (gestureBound || typeof window === 'undefined') return
   gestureBound = true
+  // pointerdown covers mouse + most TV remotes; touchstart for older WebViews; keydown for keyboards
   window.addEventListener('pointerdown', onGesture, { capture: true, passive: true })
+  window.addEventListener('touchstart', onGesture, { capture: true, passive: true })
   window.addEventListener('keydown', onGesture, { capture: true, passive: true })
+  window.addEventListener('click', onGesture, { capture: true, passive: true })
 }
 
 function unbindGesture() {
   if (!gestureBound || typeof window === 'undefined') return
   gestureBound = false
   window.removeEventListener('pointerdown', onGesture, true)
+  window.removeEventListener('touchstart', onGesture, true)
   window.removeEventListener('keydown', onGesture, true)
+  window.removeEventListener('click', onGesture, true)
 }
 
 /** @param {() => void} fn */
@@ -82,7 +90,14 @@ export function initNotifySound() {
   if (!enabled) bindGesture()
 }
 
-/** Play Calypso when a new order arrives (no-op until first user click). */
+/**
+ * Force re-check unlock (e.g. after login button). Safe if already enabled.
+ */
+export function tryUnlockNotifySound() {
+  void unlockFromGesture()
+}
+
+/** Play Calypso when a new order arrives (no-op until first user gesture). */
 export function playNewOrderSound() {
   if (typeof window === 'undefined' || !enabled) return
 

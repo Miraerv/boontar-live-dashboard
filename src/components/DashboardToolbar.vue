@@ -107,8 +107,8 @@ function onStoreChange(event) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px 0;
+  gap: 10px;
+  padding: 10px 12px 0;
 }
 
 .toolbar__meta {

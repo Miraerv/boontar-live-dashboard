@@ -109,8 +109,8 @@ const priceLabel = computed(() => formatMoney(props.order.total))
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-top: 3px solid #ccc;
-  border-radius: var(--radius-lg);
-  padding: 14px 14px 12px;
+  border-radius: var(--radius-md);
+  padding: 10px 11px 9px;
   box-shadow: var(--shadow-card);
   transition:
     box-shadow 0.15s ease,
@@ -127,8 +127,8 @@ const priceLabel = computed(() => formatMoney(props.order.total))
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .card__identity {
@@ -139,7 +139,7 @@ const priceLabel = computed(() => formatMoney(props.order.total))
 }
 
 .card__id {
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--text);
@@ -148,7 +148,7 @@ const priceLabel = computed(() => formatMoney(props.order.total))
 
 .card__price {
   flex-shrink: 0;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text);
@@ -159,8 +159,8 @@ const priceLabel = computed(() => formatMoney(props.order.total))
 .card__age {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
+  gap: 3px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -192,18 +192,18 @@ const priceLabel = computed(() => formatMoney(props.order.total))
 
 .card__badges {
   display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
+  gap: 5px;
+  margin-bottom: 8px;
   flex-wrap: wrap;
 }
 
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
+  gap: 3px;
+  font-size: 11px;
   font-weight: 600;
-  padding: 4px 9px;
+  padding: 3px 7px;
   border-radius: var(--radius-sm);
   white-space: nowrap;
   line-height: 1.25;
@@ -214,8 +214,8 @@ const priceLabel = computed(() => formatMoney(props.order.total))
   font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  font-size: 11px;
-  padding: 5px 9px;
+  font-size: 10px;
+  padding: 4px 7px;
 }
 
 .badge--paid {
@@ -281,28 +281,28 @@ const priceLabel = computed(() => formatMoney(props.order.total))
   border: 1px solid var(--border-soft);
   background: #f4f5f8;
   background: color-mix(in srgb, var(--bg-page) 55%, #fff);
-  border-radius: var(--radius-md);
-  padding: 10px 12px;
-  margin-bottom: 10px;
+  border-radius: var(--radius-sm);
+  padding: 7px 9px;
+  margin-bottom: 8px;
 }
 
 .address-box__label {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11px;
+  gap: 3px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-muted);
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
 
 .address-box__value {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text);
-  line-height: 1.35;
+  line-height: 1.3;
 }
 
 .address-box__distance {

@@ -4,13 +4,16 @@ import { ACTIVE_STATUSES, STATUS_UI_MAP, subscribeStoreOrders } from '../api/pus
 import { STATUSES } from '../constants/statuses'
 import { isOrderFromToday } from '../utils/time'
 
+/** Quiet HTTP poll — TV kiosk safety net when Pusher drops or filters events. */
+const POLL_MS = 15_000
+
 /**
  * Live orders board: HTTP load + Pusher patches for a single store.
  *
  * @param {object} options
  * @param {import('vue').Ref<number>} options.storeId
  * @param {() => void | Promise<void>} [options.onSessionDead] called on 401/403-style errors
- * @param {() => void} [options.onNewOrder] play sound / notify on order-created
+ * @param {() => void} [options.onNewOrder] play sound / notify when a new order id appears
  */
 export function useOrdersBoard({ storeId, onSessionDead, onNewOrder }) {
   const orders = ref([])
@@ -22,6 +25,15 @@ export function useOrdersBoard({ storeId, onSessionDead, onNewOrder }) {
 
   let pusherSub = null
   let reloadTimer = null
+  /** @type {ReturnType<typeof setInterval>|null} */
+  let pollInterval = null
+  /** @type {Set<number|string>|null} null until first successful load (no sound on seed) */
+  let knownOrderIds = null
+  let wasPusherOnline = false
+  /** Skip one online→sync right after connectPusher (start/reconnect already load). */
+  let skipNextOnlineSync = false
+  /** @type {((this: Document, ev: Event) => void)|null} */
+  let onVisibility = null
 
   const ordersByStatus = computed(() => {
     const groups = {}
@@ -38,6 +50,73 @@ export function useOrdersBoard({ storeId, onSessionDead, onNewOrder }) {
     }
   }
 
+  function stopPolling() {
+    if (pollInterval) {
+      clearInterval(pollInterval)
+      pollInterval = null
+    }
+  }
+
+  function startPolling() {
+    stopPolling()
+    pollInterval = setInterval(() => {
+      if (!started.value) return
+      loadOrders({ quiet: true })
+    }, POLL_MS)
+  }
+
+  function unbindVisibility() {
+    if (!onVisibility || typeof document === 'undefined') return
+    document.removeEventListener('visibilitychange', onVisibility)
+    onVisibility = null
+  }
+
+  function bindVisibility() {
+    if (typeof document === 'undefined' || onVisibility) return
+    onVisibility = () => {
+      if (document.visibilityState === 'visible' && started.value) {
+        loadOrders({ quiet: true })
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+  }
+
+  /**
+   * After a successful fetch: seed or detect new order ids and notify once.
+   * @param {Array<{ orderId?: number|string }>} list
+   */
+  function applyOrderList(list) {
+    const nextIds = new Set(list.map((o) => o.orderId).filter((id) => id != null))
+
+    if (knownOrderIds === null) {
+      knownOrderIds = nextIds
+    } else {
+      let hasNew = false
+      for (const id of nextIds) {
+        if (!knownOrderIds.has(id)) {
+          hasNew = true
+          break
+        }
+      }
+      if (hasNew) {
+        onNewOrder?.()
+      }
+      knownOrderIds = nextIds
+    }
+
+    orders.value = list
+  }
+
+  /**
+   * Mark id as already notified so a following quiet reload does not double-beep.
+   * No-op before first successful load (so we never seed with a partial id set).
+   * @param {number|string} orderId
+   */
+  function markOrderNotified(orderId) {
+    if (knownOrderIds == null) return
+    knownOrderIds.add(orderId)
+  }
+
   /**
    * @param {{ quiet?: boolean }} [opts]
    */
@@ -51,7 +130,8 @@ export function useOrdersBoard({ storeId, onSessionDead, onNewOrder }) {
     }
 
     try {
-      orders.value = await fetchStoreOrders(storeId.value)
+      const list = await fetchStoreOrders(storeId.value)
+      applyOrderList(list)
       error.value = null
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
@@ -142,7 +222,9 @@ export function useOrdersBoard({ storeId, onSessionDead, onNewOrder }) {
         patchPaid(orderId, order.paid)
         break
       case 'order-created':
+        // Immediate beep for pickers; mark id so quiet reload does not double-play
         onNewOrder?.()
+        markOrderNotified(orderId)
         scheduleReload(200)
         break
       case 'order-assembly':
@@ -174,12 +256,24 @@ export function useOrdersBoard({ storeId, onSessionDead, onNewOrder }) {
 
   function connectPusher() {
     pusherSub?.disconnect()
+    wasPusherOnline = false
     pusherOnline.value = false
+    skipNextOnlineSync = true
     pusherSub = subscribeStoreOrders({
       storeId: storeId.value,
       onEvent: onPusherEvent,
       onConnectionChange: (online) => {
+        const becameOnline = online && !wasPusherOnline
+        wasPusherOnline = online
         pusherOnline.value = online
+        if (!becameOnline || !started.value) return
+        // First connected after connectPusher: start/reconnect already call loadOrders
+        if (skipNextOnlineSync) {
+          skipNextOnlineSync = false
+          return
+        }
+        // True reconnect after an outage — catch up via HTTP
+        loadOrders({ quiet: true })
       },
     })
   }
@@ -188,38 +282,50 @@ export function useOrdersBoard({ storeId, onSessionDead, onNewOrder }) {
     pusherSub?.disconnect()
     pusherSub = null
     pusherOnline.value = false
+    wasPusherOnline = false
   }
 
   /** First start after unlock (no-op if already running). */
   function start() {
     if (started.value) return
     started.value = true
+    knownOrderIds = null
     connectPusher()
+    bindVisibility()
+    startPolling()
     loadOrders()
   }
 
   /** Rebind to current storeId (store switch while board is active). */
   function reconnect() {
     clearReloadTimer()
+    knownOrderIds = null
     orders.value = []
     connectPusher()
+    startPolling()
     loadOrders()
   }
 
   /** Tear down realtime + timers; keep started=false so start() can run again. */
   function stop() {
     clearReloadTimer()
+    stopPolling()
+    unbindVisibility()
     disconnectPusher()
+    knownOrderIds = null
     started.value = false
   }
 
   function clearOrders() {
     orders.value = []
     error.value = null
+    knownOrderIds = null
   }
 
   onUnmounted(() => {
     clearReloadTimer()
+    stopPolling()
+    unbindVisibility()
     disconnectPusher()
   })
 

@@ -60,8 +60,8 @@ body,
 body {
   margin: 0;
   font-family: var(--font);
-  font-size: 14px;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.4;
   color: var(--text);
   background: var(--bg-page);
   -webkit-font-smoothing: antialiased;
