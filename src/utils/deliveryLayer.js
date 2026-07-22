@@ -75,3 +75,25 @@ export function layerSoundUrl(layer) {
   if (n < LAYER_SOUND_MIN || n > LAYER_SOUND_MAX) return null
   return `/sounds/layer-${n}.mp3`
 }
+
+/**
+ * Visual chip for Order Card address-box (logistics). Hidden when layer unknown.
+ * Tone 0–3 map to layer palette; any other finite int → fallback.
+ *
+ * @param {unknown} layer
+ * @returns {{ label: string, tone: '0' | '1' | '2' | '3' | 'fallback' } | null}
+ */
+export function layerChip(layer) {
+  if (layer == null || layer === '') return null
+  if (typeof layer === 'object') return null
+  const raw = String(layer).trim()
+  if (raw === '' || !/^-?\d+(\.\d+)?$/.test(raw)) return null
+  const n = Math.trunc(Number(raw))
+  if (!Number.isFinite(n)) return null
+
+  const label = `Слой ${n}`
+  if (n >= LAYER_SOUND_MIN && n <= LAYER_SOUND_MAX) {
+    return { label, tone: /** @type {'0'|'1'|'2'|'3'} */ (String(n)) }
+  }
+  return { label, tone: 'fallback' }
+}

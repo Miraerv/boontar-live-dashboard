@@ -12,6 +12,7 @@ import {
 } from '@lucide/vue'
 import { useNow } from '../composables/useNow'
 import { formatMoney } from '../utils/format'
+import { layerChip } from '../utils/deliveryLayer'
 import { formatClockTime, formatOrderAge, orderAgeLevel } from '../utils/time'
 
 // prettier-ignore
@@ -37,6 +38,7 @@ const ageLabel = computed(() => formatOrderAge(props.order.createdAt, now.value)
 const clockLabel = computed(() => formatClockTime(props.order.createdAt))
 const ageLevel = computed(() => orderAgeLevel(props.order.createdAt, now.value))
 const priceLabel = computed(() => formatMoney(props.order.total))
+const layerBadge = computed(() => layerChip(props.order.layer))
 </script>
 
 <template>
@@ -81,8 +83,17 @@ const priceLabel = computed(() => formatMoney(props.order.total))
 
     <div class="address-box">
       <div class="address-box__label">
-        <MapPin :size="12" stroke-width="2.4" />
-        Адрес доставки
+        <span class="address-box__label-text">
+          <MapPin :size="12" stroke-width="2.4" />
+          Адрес доставки
+        </span>
+        <span
+          v-if="layerBadge"
+          class="layer-chip"
+          :class="`layer-chip--${layerBadge.tone}`"
+        >
+          {{ layerBadge.label }}
+        </span>
       </div>
       <div class="address-box__value">
         {{ order.address?.text || 'Адрес не указан' }}
@@ -306,13 +317,61 @@ const priceLabel = computed(() => formatMoney(props.order.total))
 .address-box__label {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin-bottom: 1px;
+  min-width: 0;
+}
+
+.address-box__label-text {
+  display: inline-flex;
+  align-items: center;
   gap: 0.2rem;
   font-size: var(--text-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-muted);
-  margin-bottom: 1px;
+  min-width: 0;
+}
+
+/* Слой — logistics chip in address-box label row */
+.layer-chip {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  padding: 0.12rem 0.45rem;
+  border-radius: var(--radius-sm);
+  line-height: 1.25;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.layer-chip--0 {
+  color: var(--layer-0);
+  background: var(--layer-0-bg);
+}
+
+.layer-chip--1 {
+  color: var(--layer-1);
+  background: var(--layer-1-bg);
+}
+
+.layer-chip--2 {
+  color: var(--layer-2);
+  background: var(--layer-2-bg);
+}
+
+.layer-chip--3 {
+  color: var(--layer-3);
+  background: var(--layer-3-bg);
+}
+
+.layer-chip--fallback {
+  color: var(--text-secondary);
+  background: #eef0f4;
 }
 
 .address-box__value {

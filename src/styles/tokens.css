@@ -28,6 +28,16 @@
   --pink: #e0417a;
   --orange: #f0a020;
 
+  /* Delivery layer chip (Order Card) — avoid green/red/blue status hues */
+  --layer-0: #4c3fbf;
+  --layer-0-bg: #ebe8ff;
+  --layer-1: #0f7a72;
+  --layer-1-bg: #e5f6f4;
+  --layer-2: #c45c12;
+  --layer-2-bg: #fff0e4;
+  --layer-3: #a61e6a;
+  --layer-3-bg: #fce8f2;
+
   /*
    * Spacing / radii in rem so TV root scale (html font-size) moves the whole UI.
    * At design width 1920, 1rem ≈ 13px (see utils/tvScale.js).

@@ -2,6 +2,7 @@
  * Pure tests: delivery layer resolve + layer sound URLs.
  */
 import {
+  layerChip,
   layerSoundUrl,
   resolveLayerFromDelivery,
   resolveOrderLayer,
@@ -73,5 +74,29 @@ const leftover = fs
   .readdirSync(soundsDir)
   .filter((n) => /слой/i.test(n) || /\d\s/.test(n))
 assert(leftover.length === 0, `no RU sound names left: ${leftover.join(',')}`)
+
+// --- layer chip (Order Card logistics badge) ---
+assert(layerChip(null) === null, 'chip null')
+assert(layerChip(undefined) === null, 'chip undefined')
+assert(layerChip('') === null, 'chip empty string')
+assert(layerChip(Number.NaN) === null, 'chip NaN')
+assert(layerChip('Слой 1') === null, 'chip label string')
+
+const c0 = layerChip(0)
+assert(c0?.label === 'Слой 0' && c0?.tone === '0', 'chip layer 0')
+const c1 = layerChip(1)
+assert(c1?.label === 'Слой 1' && c1?.tone === '1', 'chip layer 1')
+const c2 = layerChip(2)
+assert(c2?.label === 'Слой 2' && c2?.tone === '2', 'chip layer 2')
+const c3 = layerChip(3)
+assert(c3?.label === 'Слой 3' && c3?.tone === '3', 'chip layer 3')
+const c4 = layerChip(4)
+assert(c4?.label === 'Слой 4' && c4?.tone === 'fallback', 'chip layer ≥4 fallback tone')
+const cStr = layerChip('2')
+assert(cStr?.label === 'Слой 2' && cStr?.tone === '2', 'chip numeric string')
+const cFloat = layerChip(2.9)
+assert(cFloat?.label === 'Слой 2' && cFloat?.tone === '2', 'chip trunc float')
+const cNeg = layerChip(-1)
+assert(cNeg?.label === 'Слой -1' && cNeg?.tone === 'fallback', 'chip negative fallback')
 
 console.log('PASS test-delivery-layer')
