@@ -40,9 +40,15 @@ export function subscribeStoreOrders({ storeId, onEvent, onConnectionChange }) {
     return { disconnect: () => {} }
   }
 
-  const storeIds = (Array.isArray(storeId) ? storeId : [storeId])
-    .map((id) => Number(id))
-    .filter((id) => Number.isFinite(id) && id > 0)
+  // Dedupe: pusher.subscribe returns the SAME channel for a repeated name,
+  // so a duplicate store id would bind every handler twice (double sound).
+  const storeIds = [
+    ...new Set(
+      (Array.isArray(storeId) ? storeId : [storeId])
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id) && id > 0),
+    ),
+  ]
 
   if (storeIds.length === 0) {
     onConnectionChange?.(false)

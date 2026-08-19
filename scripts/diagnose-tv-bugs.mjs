@@ -89,6 +89,34 @@ check(
       : 'no reliable new-order sound path',
 )
 
+// --- Bug 3b: one order → one sound, whichever source saw it first ---
+const soundGoesThroughAnnouncer =
+  /createNewOrderAnnouncer/.test(board) &&
+  (board.match(/onNewOrder\??\.\(\)/g) || []).length === 1 &&
+  /case 'order-created'[\s\S]{0,160}announce/.test(board) &&
+  /knownOrderIds\.has[\s\S]{0,160}announce/.test(board)
+check(
+  'sound-once-per-order',
+  soundGoesThroughAnnouncer,
+  soundGoesThroughAnnouncer
+    ? 'pusher event and list diff share one per-id gate'
+    : 'new-order sound can fire twice for the same order id',
+)
+
+// --- Bug 4: overlapping loads must not revert the board to an older list ---
+const hasLoadGate =
+  /createLatestOnlyGate/.test(board) &&
+  /const stale = loadGate\.begin\(\)/.test(board) &&
+  /await fetch[\s\S]{0,120}if \(stale\(\)\) return/.test(board) &&
+  /invalidateInFlightLoads/.test(board)
+check(
+  'load-race-guard',
+  hasLoadGate,
+  hasLoadGate
+    ? 'stale load responses are dropped (poll vs reload vs store switch)'
+    : 'older load response can overwrite a newer order list',
+)
+
 const hasPlayRetry = /catch[\s\S]{0,200}bindGesture|enabled\s*=\s*false/.test(sound)
 check(
   'sound-play-retry',

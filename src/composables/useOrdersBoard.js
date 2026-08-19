@@ -4,6 +4,8 @@ import { ACTIVE_STATUSES, STATUS_UI_MAP, subscribeStoreOrders } from '../api/pus
 import { ALL_STORES_ID } from '../constants/stores'
 import { STATUSES } from '../constants/statuses'
 import { resolveOrderLayer } from '../utils/deliveryLayer'
+import { createLatestOnlyGate } from '../utils/latestOnly'
+import { createNewOrderAnnouncer } from '../utils/newOrderAnnouncer'
 import { isOrderFromToday } from '../utils/time'
 
 /** Quiet HTTP poll — TV kiosk safety net when Pusher drops or filters events. */
@@ -31,9 +33,20 @@ export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder, o
   let reloadTimer = null
   /** @type {ReturnType<typeof setInterval>|null} */
   let pollInterval = null
-  /** @type {Set<number|string>|null} null until first successful load (no sound on seed) */
+  /** @type {Set<string>|null} order ids as strings; null until first successful load (no sound on seed) */
   let knownOrderIds = null
+  /**
+   * Single gate for the new-order sound: pusher `order-created` and the HTTP
+   * diff both call it, so an order is voiced once even if both see it.
+   */
+  const newOrderAnnouncer = createNewOrderAnnouncer({ onNewOrder: () => onNewOrder?.() })
   let wasPusherOnline = false
+  /**
+   * Poll / visibility / reconnect / scheduleReload can be in flight together and
+   * answer out of order. Only the newest load may touch board state — an older
+   * response would put a pre-order list back on the TV.
+   */
+  const loadGate = createLatestOnlyGate()
   /** Skip one online→sync right after connectPusher (start/reconnect already load). */
   let skipNextOnlineSync = false
   /** @type {((this: Document, ev: Event) => void)|null} */
@@ -92,20 +105,23 @@ export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder, o
    * @param {Array<{ orderId?: number|string, status?: string, layer?: number|null }>} list
    */
   function applyOrderList(list) {
-    const nextIds = new Set(list.map((o) => o.orderId).filter((id) => id != null))
+    const nextIds = new Set(
+      list
+        .map((o) => o.orderId)
+        .filter((id) => id != null)
+        .map(String),
+    )
 
     if (knownOrderIds === null) {
       knownOrderIds = nextIds
     } else {
-      let hasNew = false
+      const freshIds = []
       for (const id of nextIds) {
-        if (!knownOrderIds.has(id)) {
-          hasNew = true
-          break
-        }
+        if (!knownOrderIds.has(id)) freshIds.push(id)
       }
-      if (hasNew) {
-        onNewOrder?.()
+      // Announcer keeps it quiet if pusher already voiced these ids
+      if (freshIds.length > 0) {
+        newOrderAnnouncer.announce(freshIds)
       }
 
       // Packed chime when HTTP catches a transition (Pusher miss / delayed event)
@@ -132,8 +148,13 @@ export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder, o
    * @param {number|string} orderId
    */
   function markOrderNotified(orderId) {
-    if (knownOrderIds == null) return
-    knownOrderIds.add(orderId)
+    if (knownOrderIds == null || orderId == null) return
+    knownOrderIds.add(String(orderId))
+  }
+
+  /** Drop responses of loads started before this call (store switch, teardown). */
+  function invalidateInFlightLoads() {
+    loadGate.invalidate()
   }
 
   /**
@@ -141,6 +162,9 @@ export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder, o
    */
   async function loadOrders(opts = {}) {
     const quiet = Boolean(opts.quiet)
+    /** True once a newer load took over — this response is history. */
+    const stale = loadGate.begin()
+
     if (!quiet) {
       loading.value = true
       error.value = null
@@ -152,6 +176,7 @@ export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder, o
       let list = isAllStores()
         ? await fetchAllOrders()
         : await fetchStoreOrders(storeId.value)
+      if (stale()) return
       // Store badge only useful when many warehouses share one board
       if (!isAllStores()) {
         list = list.map((o) => (o.storeName ? { ...o, storeName: null } : o))
@@ -161,10 +186,12 @@ export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder, o
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       const sessionDead = /сессия|нет доступа|401|403/i.test(message)
+      // Auth is session-wide, not board state — act on it even if this load is stale
       if (sessionDead) {
         await onSessionDead?.()
         return
       }
+      if (stale()) return
       if (!quiet) {
         error.value = message
         orders.value = []
@@ -172,8 +199,11 @@ export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder, o
         console.warn('[orders] quiet reload failed', e)
       }
     } finally {
-      loading.value = false
-      syncing.value = false
+      // A stale response must not clear the spinner of the load still running
+      if (!stale()) {
+        loading.value = false
+        syncing.value = false
+      }
     }
   }
 
@@ -281,8 +311,8 @@ export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder, o
         patchPaid(orderId, order.paid)
         break
       case 'order-created':
-        // Immediate beep for pickers; mark id so quiet reload does not double-play
-        onNewOrder?.()
+        // Immediate beep for pickers; announcer + mark keep the reload silent
+        newOrderAnnouncer.announce([orderId])
         markOrderNotified(orderId)
         scheduleReload(200)
         break
@@ -370,6 +400,8 @@ export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder, o
   /** Rebind to current storeId (store switch while board is active). */
   function reconnect() {
     clearReloadTimer()
+    // Previous store may still have a request in flight — its list is now wrong
+    invalidateInFlightLoads()
     knownOrderIds = null
     orders.value = []
     connectPusher()
@@ -383,11 +415,16 @@ export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder, o
     stopPolling()
     unbindVisibility()
     disconnectPusher()
+    invalidateInFlightLoads()
     knownOrderIds = null
     started.value = false
+    loading.value = false
+    syncing.value = false
   }
 
   function clearOrders() {
+    // Logout / lock: a pending response must not refill the board behind the gate
+    invalidateInFlightLoads()
     orders.value = []
     error.value = null
     knownOrderIds = null
@@ -398,6 +435,7 @@ export function useOrdersBoard({ storeId, storeIds, onSessionDead, onNewOrder, o
     stopPolling()
     unbindVisibility()
     disconnectPusher()
+    invalidateInFlightLoads()
   })
 
   return {
