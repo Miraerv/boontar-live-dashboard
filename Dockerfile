@@ -22,7 +22,7 @@ ENV VITE_PUSHER_APP_KEY=$VITE_PUSHER_APP_KEY \
 RUN pnpm build
 
 # Stage 2: nginx static + reverse proxy /api → Hono (BACKEND_HOST)
-FROM nginx:1.27-alpine
+FROM nginx:1.30-alpine
 
 # Official image runs envsubst on /etc/nginx/templates/*.template → conf.d/
 COPY docker/nginx.conf.template /etc/nginx/templates/default.conf.template

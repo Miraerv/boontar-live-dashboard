@@ -168,10 +168,10 @@ VITE_PUSHER_APP_CLUSTER=ap3
 | `VITE_PUSHER_APP_KEY` | — | public key Pusher (**bake at build**) |
 | `VITE_PUSHER_APP_CLUSTER` | `ap3` | cluster Pusher (**bake at build**) |
 
-`VITE_*` попадают в JS **только при сборке образа**. Сменил ключ → `docker compose up -d --build` снова.
+`VITE_*` попадают в JS **только при сборке образа**. Сменил ключ → `make init` снова.
 
 ```sh
-docker compose up -d --build
+make init   # = docker compose down + pull + build --pull + up -d
 ```
 
 ### 3. Проверка
@@ -190,10 +190,11 @@ curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/api/dashboard/au
 ### Полезные команды
 
 ```sh
+make init                       # пересобрать с --pull (свежий nginx) и поднять; после смены VITE_* или кода
+make down                       # остановить SPA (сеть boontar-live-dashboard не удалится)
+make down-clear                 # то же + удалить volumes
 docker compose logs -f --tail=100
 docker compose restart
-docker compose up -d --build    # после смены VITE_* или кода
-docker compose down             # остановить SPA (сеть boontar-live-dashboard не удалится)
 ```
 
 ### Замечания
