@@ -11,7 +11,8 @@
 #
 # Default BACKEND_HOST=backend:3000 (alias on shared network boontar-live-dashboard).
 
-name: boontar-live-dashboard
+# Own project name: `down --remove-orphans` here must not touch the backend container
+name: boontar-live-dashboard-frontend
 
 services:
   frontend:
